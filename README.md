@@ -10,7 +10,7 @@
 bun install
 bun run dev        # 开发服务器
 bun run build      # 类型检查 + 生产构建（输出到 dist/）
-bun run deploy     # 构建并部署到 Cloudflare Workers（静态资源，配置见 wrangler.jsonc）
+bun run deploy     # 构建并部署到 Cloudflare Workers（https://ball.contextudio.com，配置见 wrangler.jsonc）
 bun run sim 100    # 无头模拟：每组对局各打 100×2 局，输出胜率和时长
 bun run dps        # 各角色在不同时间段的每秒伤害
 bun run vsall knight,hive 10   # 指定角色对全体的胜率（调参时用）

@@ -23,8 +23,8 @@ export function ResultOverlay({ hud, sides, onReplay, onRematch, onBack }: Resul
   const secs = hud.fightTime.toFixed(1)
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-4 backdrop-blur-[2px]">
-      <div className="animate-pop-in w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-950/95 p-5 shadow-2xl">
+    <div className="fixed inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-[2px]">
+      <div className="animate-pop-in my-auto w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-950/95 p-5 shadow-2xl">
         <div className="text-center">
           {winner ? (
             <>
