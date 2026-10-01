@@ -12,13 +12,13 @@ export const ARROW_SPEED = 800
 /** Delay before the first shot of the fight (s). */
 export const FIRST_SHOT = 0.5
 /** Fire interval before the ramp starts (s). */
-export const BASE_INTERVAL = 0.75
+export const BASE_INTERVAL = 0.45
 /** The interval is multiplied by this every second once the ramp starts. */
-export const INTERVAL_DECAY = 0.88
+export const INTERVAL_DECAY = 0.85
 /** Fight time after which the fire rate starts ramping up (s). */
-export const RAMP_START = 2.2
+export const RAMP_START = 0.8
 /** Fastest possible fire interval (s) — a stream of ~10 arrows per second. */
-export const MIN_INTERVAL = 0.18
+export const MIN_INTERVAL = 0.2
 /** Fraction of each interval spent at full draw before the release. */
 const DRAW_FRACTION = 0.4
 /** Below this interval the bow is held at full draw permanently (s). */
