@@ -15,16 +15,18 @@ const WEB_RANGE = 420
 const WEB_FLIGHT_TIME = 0.9
 /** The web lingers this long after landing empty (s). */
 const MISS_LINGER = 0.4
-export const TRAP_DURATION = 2.5
+export const TRAP_DURATION = 2.6
+/** The trapped enemy's disarm is refreshed every step it stays in the web, so it ends with the trap. */
+const DISARM_REFRESH = 0.1
 /** Speed at which the spider scuttles to its catch. */
 const APPROACH_SPEED = 520
 /** Centre distance while the spider is clamped onto its prey. */
 const GRIP_DISTANCE = BALL_RADIUS * 1.5
 export const BITE_DAMAGE = 1
 /** Bites per second ramps up with fight time: base + slope·t, capped. */
-const BITE_RATE_BASE = 8
+const BITE_RATE_BASE = 5
 const BITE_RATE_SLOPE = 0.12
-const BITE_RATE_MAX = 12
+const BITE_RATE_MAX = 9
 const LEG_REACH = BALL_RADIUS * 2.5
 
 type WebState =
@@ -41,7 +43,7 @@ export function biteRate(fightTime: number): number {
  * 蜘蛛 — shoots a web at the enemy. A caught enemy is stuck in place for a
  * few seconds while the spider scuttles over, clamps on and bites
  * rapidly. Bites get faster the longer the fight lasts. A trapped enemy
- * can still use its own weapon.
+ * is disarmed: it can't start new attacks until the web lets go.
  */
 export class SpiderAbility extends Ability {
   private web: WebState | null = null
@@ -122,6 +124,7 @@ export class SpiderAbility extends Ability {
   /** `flightTime` is how long the web flew; the hit cooldown counts from launch. */
   private catch(prey: Ball, flightTime: number): void {
     prey.applyRoot(TRAP_DURATION)
+    prey.applyDisarm(DISARM_REFRESH)
     this.web = { kind: 'caught', prey, time: TRAP_DURATION }
     this.cooldown = Math.max(this.cooldown, HIT_COOLDOWN - flightTime)
     this.world.sound('web', 0.9, 0.7)
@@ -135,6 +138,8 @@ export class SpiderAbility extends Ability {
       this.release()
       return
     }
+    // Wrapped up in silk: no new attacks until the trap ends.
+    prey.applyDisarm(DISARM_REFRESH)
     if (!this.gripped) {
       // Scuttle straight over to the catch.
       const dx = prey.pos.x - o.pos.x
@@ -348,7 +353,7 @@ export const spiderDef: CharacterDef = {
     `朝敌人吐出一张蛛网，网住后敌人原地定身 ${TRAP_DURATION} 秒`,
     `蜘蛛爬过去扒住猎物，每口 -${BITE_DAMAGE}，咬速随时间越来越快`,
     `命中后 ${HIT_COOLDOWN} 秒才能再吐网，落空则冷却更短`,
-    '被网住的敌人仍然可以发动自己的武器',
+    '被网住期间敌人被缴械，无法发动新的攻击（已经放出去的照样有效）',
   ],
   palette: { ball: '#1b2a6b', text: '#ffffff', accent: '#5068d8' },
   mirrorPalette: { ball: '#3b0764', text: '#f3e8ff', accent: '#a855f7' },

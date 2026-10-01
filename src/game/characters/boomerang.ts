@@ -7,7 +7,7 @@ import type { CharacterDef } from './types'
 
 const FIRST_THROW = 2.2
 /** Idle time after each catch before the next throw (s). */
-export const THROW_COOLDOWN = 1.8
+export const THROW_COOLDOWN = 1.5
 /** Flight time of one out-and-back throw (s). */
 export const FLIGHT_TIME = 1.3
 export const BOOMERANG_DAMAGE = 10
@@ -126,6 +126,8 @@ export class BoomerangAbility extends Ability {
   private collide(): void {
     const e = this.enemy
     if (!e.alive || !this.world.combatActive || this.hitCooldown > 0) return
+    // A boomerang already in flight still lands; the one held in orbit can't strike while disarmed.
+    if (!this.flight && this.owner.disarmed) return
     const reach = e.radius + HIT_REACH
     const dx = e.pos.x - this.pos.x
     const dy = e.pos.y - this.pos.y
@@ -238,7 +240,7 @@ export const boomerangDef: CharacterDef = {
   nameEn: 'BOOMERANG',
   tagline: '去了还会回来',
   rules: [
-    '一只回旋镖绕着本体旋转，碰到敌人也会造成伤害',
+    '一只回旋镖绕着本体旋转，碰到敌人也会造成伤害（被缴械时转着的不伤人）',
     `每隔 ${THROW_COOLDOWN} 秒朝敌人掷出，画一个来回的弧线飞回本体（约 ${FLIGHT_TIME} 秒）`,
     `命中敌人 -${BOOMERANG_DAMAGE}，回旋镖直接穿过`,
     '去程和回程都能打中，一次投掷可以命中两下',
