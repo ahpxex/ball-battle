@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp } from '../core/vec'
 import type { Ball } from '../engine/Ball'
 import type { DamageKind } from '../engine/types'
@@ -46,7 +47,7 @@ export class Swarm {
     const s = this.config.speed
     this.minions.push({
       pos: { x: pos.x, y: pos.y },
-      vel: { x: Math.cos(heading) * s, y: Math.sin(heading) * s },
+      vel: { x: dm.cos(heading) * s, y: dm.sin(heading) * s },
       radius,
       life,
       maxLife: life,
@@ -67,13 +68,13 @@ export class Swarm {
       kept.push(m)
       if (m.age < c.spawnDelay) continue
       if (target.alive) {
-        const want = Math.atan2(target.pos.y - m.pos.y, target.pos.x - m.pos.x)
-        const cur = Math.atan2(m.vel.y, m.vel.x)
+        const want = dm.atan2(target.pos.y - m.pos.y, target.pos.x - m.pos.x)
+        const cur = dm.atan2(m.vel.y, m.vel.x)
         let diff = want - cur
         while (diff > Math.PI) diff -= Math.PI * 2
         while (diff < -Math.PI) diff += Math.PI * 2
         const a = cur + clamp(diff, -c.turnRate * dt, c.turnRate * dt)
-        m.vel = { x: Math.cos(a) * c.speed, y: Math.sin(a) * c.speed }
+        m.vel = { x: dm.cos(a) * c.speed, y: dm.sin(a) * c.speed }
       }
       m.pos.x = clamp(m.pos.x + m.vel.x * dt, m.radius, size - m.radius)
       m.pos.y = clamp(m.pos.y + m.vel.y * dt, m.radius, size - m.radius)
@@ -83,7 +84,7 @@ export class Swarm {
       const dy = target.pos.y - m.pos.y
       if (dx * dx + dy * dy >= reach * reach) continue
       m.cooldown = c.contactCooldown
-      const d = Math.hypot(dx, dy) || 1
+      const d = dm.hypot(dx, dy) || 1
       const k = c.knock ?? 0
       world.damage(target, c.contactDamage, {
         kind: c.kind,

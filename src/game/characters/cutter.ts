@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
@@ -90,7 +91,7 @@ export class CutterAbility extends Ability {
     this.prevWall = e.wall
     if (!prev || sameWall) return
     if (!this.world.combatActive || this.owner.disarmed || this.lines.length >= MAX_LINES) return
-    if (Math.hypot(point.x - prev.x, point.y - prev.y) < MIN_CHORD) return
+    if (dm.hypot(point.x - prev.x, point.y - prev.y) < MIN_CHORD) return
     this.addLine(prev, point)
   }
 
@@ -174,7 +175,7 @@ export function drawZone(ctx: CanvasRenderingContext2D, zone: readonly Vec[], a:
   if (zone.length < 3 || alpha <= 0) return
   const dx = b.x - a.x
   const dy = b.y - a.y
-  const l = Math.hypot(dx, dy) || 1
+  const l = dm.hypot(dx, dy) || 1
   // Unit normal pointing into the zone.
   const nx = (-dy / l) * side
   const ny = (dx / l) * side
@@ -214,7 +215,7 @@ export function drawCutLine(ctx: CanvasRenderingContext2D, a: Vec, b: Vec, alpha
   ctx.lineWidth = 1.5
   ctx.stroke()
   // Sparkles drift along the line at a steady pace.
-  const len = Math.hypot(b.x - a.x, b.y - a.y)
+  const len = dm.hypot(b.x - a.x, b.y - a.y)
   if (len > 1) {
     const speed = 140 / len
     ctx.fillStyle = '#ffffff'
@@ -223,7 +224,7 @@ export function drawCutLine(ctx: CanvasRenderingContext2D, a: Vec, b: Vec, alpha
     for (let i = 0; i < SPARKLES; i++) {
       const raw = seed + i / SPARKLES + time * speed
       const u = raw - Math.floor(raw)
-      const twinkle = 0.55 + 0.45 * Math.sin(time * 18 + i * 2.3 + seed * 40)
+      const twinkle = 0.55 + 0.45 * dm.sin(time * 18 + i * 2.3 + seed * 40)
       ctx.beginPath()
       ctx.arc(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, 1.1 + 0.6 * twinkle, 0, Math.PI * 2)
       ctx.fill()
@@ -255,15 +256,8 @@ export function drawCutterPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const cutterDef: CharacterDef = {
   id: 'cutter',
-  name: '切割者',
   nameEn: 'CUTTER',
-  tagline: '一刀把场地切开',
-  rules: [
-    `两次撞墙之间飞过的路线变成一道切割线（最多同时 ${MAX_LINES} 道）`,
-    `切割线把场地分成两块，较小的那块变成危险区，持续 ${LINE_LIFE} 秒`,
-    `敌人待在危险区里每 ${CUT_TICK} 秒 -${CUT_DAMAGE}，叠在两块以上时加快到每 ${CUT_TICK_STACKED} 秒`,
-    '自己不受危险区影响',
-  ],
+  ruleValues: { maxLines: MAX_LINES, lineLife: LINE_LIFE, cutTick: CUT_TICK, cutDamage: CUT_DAMAGE, cutTickStacked: CUT_TICK_STACKED },
   palette: { ball: '#ec3629', text: '#ffffff', accent: '#e03830' },
   mirrorPalette: { ball: '#b91c1c', text: '#fee2e2', accent: '#f87171' },
   create: (w, b) => new CutterAbility(w, b),

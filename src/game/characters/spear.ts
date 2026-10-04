@@ -1,5 +1,6 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
-import { clamp, damp, len, lerpAngle } from '../core/vec'
+import { clamp, damp, distSq, len, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS, BASE_SPEED } from '../engine/constants'
@@ -49,7 +50,7 @@ export class SpearAbility extends Ability {
 
   constructor(world: World, owner: Ball) {
     super(world, owner)
-    this.angle = Math.atan2(owner.vel.y, owner.vel.x)
+    this.angle = dm.atan2(owner.vel.y, owner.vel.x)
   }
 
   /** Damage of a stab landed right now (grows with fight time). */
@@ -65,20 +66,20 @@ export class SpearAbility extends Ability {
   override update(dt: number): void {
     const o = this.owner
     this.cooldown = Math.max(0, this.cooldown - dt)
-    if (len(o.vel) > 1) this.angle = lerpAngle(this.angle, Math.atan2(o.vel.y, o.vel.x), damp(TURN_RATE, dt))
+    if (len(o.vel) > 1) this.angle = lerpAngle(this.angle, dm.atan2(o.vel.y, o.vel.x), damp(TURN_RATE, dt))
     this.recordTrail()
 
     if (this.cooldown > 0 || o.disarmed || !this.world.combatActive) return
     const e = this.enemy
     if (!e.alive) return
     const R = o.radius
-    const dx = Math.cos(this.angle)
-    const dy = Math.sin(this.angle)
+    const dx = dm.cos(this.angle)
+    const dy = dm.sin(this.angle)
     const a = { x: o.pos.x + dx * HIT_START * R, y: o.pos.y + dy * HIT_START * R }
     const b = { x: o.pos.x + dx * TIP_AT * R, y: o.pos.y + dy * TIP_AT * R }
     const at = closestPointOnSegment(e.pos, a, b)
     const reach = e.radius + HIT_SLACK
-    if ((at.x - e.pos.x) ** 2 + (at.y - e.pos.y) ** 2 > reach * reach) return
+    if (distSq(at, e.pos) > reach * reach) return
     this.cooldown = SPEAR_COOLDOWN
     const dmg = this.stabDamage
     this.world.damage(e, dmg, {
@@ -208,7 +209,7 @@ export function drawSpearPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   const angle = -Math.PI / 4
   const ghosts = Array.from({ length: 8 }, (_, i) => {
     const back = (8 - i) * r * 0.13
-    return { x: x - Math.cos(angle) * back, y: y - Math.sin(angle) * back }
+    return { x: x - dm.cos(angle) * back, y: y - dm.sin(angle) * back }
   })
   ghosts.push({ x, y })
   drawMotionTrail(ctx, ghosts, br, color, 1)
@@ -223,15 +224,8 @@ export function drawSpearPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const spearDef: CharacterDef = {
   id: 'spear',
-  name: '长矛',
   nameEn: 'SPEAR',
-  tagline: '越冲越快，越刺越疼',
-  rules: [
-    '一杆长矛始终朝着前进方向，矛尖在前',
-    `矛尖刺中敌人造成伤害并把它顶飞，同一目标每 ${SPEAR_COOLDOWN} 秒最多一次`,
-    `伤害随时间增长：${BASE_DAMAGE} + ${DAMAGE_GROWTH} × 战斗秒数`,
-    `移动速度随时间增长，最高 ${MAX_GROWTH} 倍`,
-  ],
+  ruleValues: { spearCooldown: SPEAR_COOLDOWN, baseDamage: BASE_DAMAGE, damageGrowth: DAMAGE_GROWTH, maxGrowth: MAX_GROWTH },
   palette: { ball: '#00a645', text: '#ffffff', accent: '#00a447' },
   mirrorPalette: { ball: '#14532d', text: '#dcfce7', accent: '#4ade80' },
   create: (w, b) => new SpearAbility(w, b),

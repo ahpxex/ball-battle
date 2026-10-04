@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
@@ -122,15 +123,15 @@ export class MeteorAbility extends Ability {
     // (two refinement passes on the flight time are plenty).
     let e = this.enemy.pos
     for (let i = 0; i < 2; i++) {
-      const t = Math.hypot(e.x - from.x, e.y - from.y) / METEOR_SPEED
+      const t = dm.hypot(e.x - from.x, e.y - from.y) / METEOR_SPEED
       e = predictPosition(this.enemy, t, s)
     }
     const a = rng.range(0, Math.PI * 2)
     const off = Math.sqrt(rng.next()) * AIM_SPREAD
-    const target = { x: e.x + Math.cos(a) * off, y: e.y + Math.sin(a) * off }
+    const target = { x: e.x + dm.cos(a) * off, y: e.y + dm.sin(a) * off }
     const dx = target.x - from.x
     const dy = target.y - from.y
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     const sizeT = rng.next()
     this.rocks.push({
       pos: from,
@@ -173,7 +174,7 @@ export class MeteorAbility extends Ability {
     if (e.alive) {
       const dx = e.pos.x - at.x
       const dy = e.pos.y - at.y
-      const d = Math.hypot(dx, dy)
+      const d = dm.hypot(dx, dy)
       if (d < BLAST_RADIUS + e.radius) {
         const raw = Math.round(MIN_DAMAGE + (MAX_DAMAGE - MIN_DAMAGE) * r.sizeT + this.world.rng.range(-DAMAGE_JITTER, DAMAGE_JITTER))
         const dmg = clamp(raw, MIN_DAMAGE, MAX_DAMAGE)
@@ -218,14 +219,14 @@ export class MeteorAbility extends Ability {
     }
     for (const r of this.rocks) {
       const trail = BALL_RADIUS * (2 + 2 * r.sizeT)
-      drawMeteor(ctx, r.pos.x, r.pos.y, r.radius, Math.atan2(r.dir.y, r.dir.x), r.seed, time, trail)
+      drawMeteor(ctx, r.pos.x, r.pos.y, r.radius, dm.atan2(r.dir.y, r.dir.x), r.seed, time, trail)
     }
     ctx.restore()
   }
 }
 
 function hash(n: number): number {
-  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453
+  const x = dm.sin(n * 12.9898 + 78.233) * 43758.5453
   return x - Math.floor(x)
 }
 
@@ -297,8 +298,8 @@ export function drawMeteor(
     for (let k = 0; k < n; k++) {
       const a = (k / n) * Math.PI * 2 + spin
       const rad = rr * (0.82 + 0.18 * hash(seed + k * 1.7))
-      const vx = Math.cos(a) * rad
-      const vy = Math.sin(a) * rad
+      const vx = dm.cos(a) * rad
+      const vy = dm.sin(a) * rad
       if (k === 0) ctx.moveTo(vx, vy)
       else ctx.lineTo(vx, vy)
     }
@@ -321,7 +322,7 @@ export function drawMeteor(
     const d = rr * (0.25 + 0.35 * hash(seed + k * 6.1))
     const cr = rr * (0.16 + 0.12 * hash(seed + k * 8.7))
     ctx.beginPath()
-    ctx.arc(Math.cos(a) * d, Math.sin(a) * d, cr, 0, Math.PI * 2)
+    ctx.arc(dm.cos(a) * d, dm.sin(a) * d, cr, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -367,15 +368,8 @@ export function drawMeteorPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const meteorDef: CharacterDef = {
   id: 'meteor',
-  name: '星陨',
   nameEn: 'METEOR BALL',
-  tagline: '天降流星雨',
-  rules: [
-    `每 ${CAST_INTERVAL}±${CAST_JITTER} 秒召唤一次流星雨，${LAUNCH_DELAY} 秒后从场外连续飞来 ${METEORS_PER_VOLLEY} 颗陨石`,
-    '每颗陨石瞄准敌人发射那一刻的位置，直线飞行后落地爆炸',
-    `爆炸波及敌人 -${MIN_DAMAGE}~${MAX_DAMAGE}，陨石越大伤害越高`,
-    `爆炸半径约 ${(BLAST_RADIUS / BALL_RADIUS).toFixed(1)} 个球半径，会把敌人震开`,
-  ],
+  ruleValues: { castInterval: CAST_INTERVAL, castJitter: CAST_JITTER, launchDelay: LAUNCH_DELAY, meteorsPerVolley: METEORS_PER_VOLLEY, minDamage: MIN_DAMAGE, maxDamage: MAX_DAMAGE, blastRadii: (BLAST_RADIUS / BALL_RADIUS).toFixed(1) },
   palette: { ball: '#ff7c19', text: '#ffffff', accent: '#e87830' },
   mirrorPalette: { ball: '#9a3412', text: '#ffedd5', accent: '#fb923c' },
   create: (w, b) => new MeteorAbility(w, b),

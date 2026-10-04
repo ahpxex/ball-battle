@@ -1,8 +1,42 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["react", "typescript", "oxc"],
+  "jsPlugins": ["./lint/determinism.js"],
   "rules": {
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+  },
+  "overrides": [
+    {
+      // The battle simulation must be bit-identical in every JS engine (players
+      // and the server each run it). See src/game/core/dmath.ts.
+      "files": ["src/game/engine/**", "src/game/characters/**", "src/game/core/**", "src/game/match.ts"],
+      "rules": {
+        "no-restricted-properties": [
+          "error",
+          { "object": "Math", "property": "sin", "message": "Use dm.sin from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "cos", "message": "Use dm.cos from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "tan", "message": "Use dm.tan from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "asin", "message": "Use dm.asin from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "acos", "message": "Use dm.acos from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "atan", "message": "Use dm.atan from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "atan2", "message": "Use dm.atan2 from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "exp", "message": "Use dm.exp from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "log", "message": "Use dm.log from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "pow", "message": "Use dm.pow from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "hypot", "message": "Use dm.hypot from core/dmath (cross-engine determinism)." },
+          { "object": "Math", "property": "random", "message": "Simulation randomness must come from the seeded world.rng." },
+          { "object": "Math", "property": "sinh", "message": "Not reproducible across engines; add it to core/dmath first." },
+          { "object": "Math", "property": "cosh", "message": "Not reproducible across engines; add it to core/dmath first." },
+          { "object": "Math", "property": "tanh", "message": "Not reproducible across engines; add it to core/dmath first." },
+          { "object": "Math", "property": "expm1", "message": "Not reproducible across engines; add it to core/dmath first." },
+          { "object": "Math", "property": "log1p", "message": "Not reproducible across engines; add it to core/dmath first." },
+          { "object": "Math", "property": "log2", "message": "Not reproducible across engines; add it to core/dmath first." },
+          { "object": "Math", "property": "log10", "message": "Not reproducible across engines; add it to core/dmath first." },
+          { "object": "Math", "property": "cbrt", "message": "Not reproducible across engines; add it to core/dmath first." }
+        ],
+        "determinism/no-exponent-operator": "error"
+      }
+    }
+  ]
 }

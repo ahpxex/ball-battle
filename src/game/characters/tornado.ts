@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -70,18 +71,18 @@ export class TornadoAbility extends Ability {
       }
       // Drift towards the enemy with a limited turn rate.
       if (e.alive) {
-        const want = Math.atan2(e.pos.y - t.pos.y, e.pos.x - t.pos.x)
+        const want = dm.atan2(e.pos.y - t.pos.y, e.pos.x - t.pos.x)
         let diff = want - t.heading
         while (diff > Math.PI) diff -= Math.PI * 2
         while (diff < -Math.PI) diff += Math.PI * 2
         t.heading += clamp(diff, -TURN_RATE * dt, TURN_RATE * dt)
       }
       const sp = t.captured ? CARRY_SPEED : SEEK_SPEED
-      t.pos.x = clamp(t.pos.x + Math.cos(t.heading) * sp * dt, TORNADO_RADIUS * 0.5, s - TORNADO_RADIUS * 0.5)
-      t.pos.y = clamp(t.pos.y + Math.sin(t.heading) * sp * dt, TORNADO_RADIUS * 0.5, s - TORNADO_RADIUS * 0.5)
+      t.pos.x = clamp(t.pos.x + dm.cos(t.heading) * sp * dt, TORNADO_RADIUS * 0.5, s - TORNADO_RADIUS * 0.5)
+      t.pos.y = clamp(t.pos.y + dm.sin(t.heading) * sp * dt, TORNADO_RADIUS * 0.5, s - TORNADO_RADIUS * 0.5)
       if (t.captured) this.hold(t, dt)
       else if (t.age > GROW_TIME && e.alive && this.world.combatActive && !e.pinned && !this.isHeld(e)) {
-        if ((e.pos.x - t.pos.x) ** 2 + (e.pos.y - t.pos.y) ** 2 < TORNADO_RADIUS * TORNADO_RADIUS) {
+        if (distSq(e.pos, t.pos) < TORNADO_RADIUS * TORNADO_RADIUS) {
           t.captured = e
           t.holdT = 0
           t.ticksDone = 0
@@ -106,7 +107,7 @@ export class TornadoAbility extends Ability {
     const o = this.owner
     this.tornadoes.push({
       pos: { x: o.pos.x, y: o.pos.y },
-      heading: Math.atan2(this.enemy.pos.y - o.pos.y, this.enemy.pos.x - o.pos.x),
+      heading: dm.atan2(this.enemy.pos.y - o.pos.y, this.enemy.pos.x - o.pos.x),
       age: 0,
       spin: this.world.rng.range(0, Math.PI * 2),
       captured: null,
@@ -127,7 +128,7 @@ export class TornadoAbility extends Ability {
     }
     if (!e.pinned) {
       // Reel the victim into the eye.
-      const k = 1 - Math.exp(-10 * dt)
+      const k = 1 - dm.exp(-10 * dt)
       e.pos.x += (t.pos.x - e.pos.x) * k
       e.pos.y += (t.pos.y - e.pos.y) * k
     }
@@ -155,7 +156,7 @@ export class TornadoAbility extends Ability {
     for (let i = 0; i < 3; i++) {
       const a = a0 + i * 2.1
       ctx.beginPath()
-      ctx.arc(o.pos.x + Math.cos(a) * o.radius * 1.45, o.pos.y + Math.sin(a) * o.radius * 1.45, 2, 0, Math.PI * 2)
+      ctx.arc(o.pos.x + dm.cos(a) * o.radius * 1.45, o.pos.y + dm.sin(a) * o.radius * 1.45, 2, 0, Math.PI * 2)
       ctx.fill()
     }
     ctx.restore()
@@ -199,9 +200,9 @@ export function drawTornado(ctx: CanvasRenderingContext2D, x: number, y: number,
   const jit = Math.floor(time * 20)
   for (let i = 0; i <= 6; i++) {
     const a = spin * 0.5 + (i / 6) * Math.PI * 2
-    const w = 1 + 0.06 * Math.sin(jit * 1.7 + i * 2.3)
-    const px = x + Math.cos(a) * r * w
-    const py = y + Math.sin(a) * r * w
+    const w = 1 + 0.06 * dm.sin(jit * 1.7 + i * 2.3)
+    const px = x + dm.cos(a) * r * w
+    const py = y + dm.sin(a) * r * w
     if (i === 0) ctx.moveTo(px, py)
     else ctx.lineTo(px, py)
   }
@@ -216,8 +217,8 @@ export function drawTornado(ctx: CanvasRenderingContext2D, x: number, y: number,
       const u = k / 14
       const a = spin + arm * (Math.PI / 2) + u * 3.2
       const rr = r * (0.12 + 0.8 * u)
-      const px = x + Math.cos(a) * rr
-      const py = y + Math.sin(a) * rr
+      const px = x + dm.cos(a) * rr
+      const py = y + dm.sin(a) * rr
       if (k === 0) ctx.moveTo(px, py)
       else ctx.lineTo(px, py)
     }
@@ -236,15 +237,8 @@ export function drawTornadoPortrait(ctx: CanvasRenderingContext2D, cx: number, c
 
 export const tornadoDef: CharacterDef = {
   id: 'tornado',
-  name: '飓风',
   nameEn: 'TORNADO',
-  tagline: '风会一直追着你',
-  rules: [
-    `每 ${SPAWN_INTERVAL} 秒在身后留下一个龙卷风`,
-    '龙卷风会慢慢追向敌人，碰到就把敌人卷进风眼',
-    `被卷住约 1.8 秒，期间 ${TICKS} 次 -${TICK_DAMAGE}，之后龙卷风消散`,
-    '没卷到人的龙卷风会在场上游荡一段时间',
-  ],
+  ruleValues: { spawnInterval: SPAWN_INTERVAL, ticks: TICKS, tickDamage: TICK_DAMAGE },
   palette: { ball: '#4d7d89', text: '#ffffff', accent: '#6f9aa6' },
   mirrorPalette: { ball: '#334155', text: '#e2e8f0', accent: '#94a3b8' },
   create: (w, b) => new TornadoAbility(w, b),

@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
 import { type Vec, clamp, damp, lerp, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -77,19 +78,19 @@ export class BoxerAbility extends Ability {
   constructor(world: World, owner: Ball) {
     super(world, owner)
     const e = this.enemy
-    this.aim = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
+    this.aim = dm.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
   }
 
   private toEnemy(): number {
     const o = this.owner.pos
     const e = this.enemy.pos
-    return Math.atan2(e.y - o.y, e.x - o.x)
+    return dm.atan2(e.y - o.y, e.x - o.x)
   }
 
   private enemyDistance(): number {
     const o = this.owner.pos
     const e = this.enemy.pos
-    return Math.hypot(e.x - o.x, e.y - o.y)
+    return dm.hypot(e.x - o.x, e.y - o.y)
   }
 
   override update(dt: number): void {
@@ -135,14 +136,14 @@ export class BoxerAbility extends Ability {
     const e = this.enemy
     if (!e.alive || !this.world.combatActive) return
     const o = this.owner.pos
-    const nx = Math.cos(p.dir)
-    const ny = Math.sin(p.dir)
+    const nx = dm.cos(p.dir)
+    const ny = dm.sin(p.dir)
     const tip = { x: o.x + nx * TIP_REACH, y: o.y + ny * TIP_REACH }
     // The glove sweeps from the body out to full reach, so an enemy pressed
     // against the boxer is hit too, not only one sitting right at the tip.
     const rim = { x: o.x + nx * this.owner.radius, y: o.y + ny * this.owner.radius }
     const contact = closestPointOnSegment(e.pos, rim, tip)
-    if (Math.hypot(contact.x - e.pos.x, contact.y - e.pos.y) > e.radius + HIT_SLACK) return
+    if (dm.hypot(contact.x - e.pos.x, contact.y - e.pos.y) > e.radius + HIT_SLACK) return
     const dealt = this.world.damage(e, JAB_DAMAGE, { kind: 'punch', source: this.owner, at: contact })
     if (dealt <= 0 || this.charge >= 0) return
     this.combo += 1
@@ -163,8 +164,8 @@ export class BoxerAbility extends Ability {
     this.punches[g] = { t: 0, dir, pull: 0, thrust: 0, ret: HAYMAKER_RETURN, resolved: true }
     this.nextGlove = 1 - g
     this.cooldown = PUNCH_COOLDOWN
-    const nx = Math.cos(dir)
-    const ny = Math.sin(dir)
+    const nx = dm.cos(dir)
+    const ny = dm.sin(dir)
     const at = { x: e.pos.x - nx * e.radius, y: e.pos.y - ny * e.radius }
     const dealt = this.world.damage(e, HAYMAKER_DAMAGE, {
       kind: 'punch',
@@ -179,7 +180,7 @@ export class BoxerAbility extends Ability {
   /** Guard pose: gloves on either side, pointing away from the body. */
   private restPose(side: number, dist: number): GlovePose {
     const a = this.aim + side * (Math.PI / 2)
-    return { x: Math.cos(a) * dist, y: Math.sin(a) * dist, angle: a }
+    return { x: dm.cos(a) * dist, y: dm.sin(a) * dist, angle: a }
   }
 
   private glovePose(i: number): GlovePose {
@@ -188,20 +189,20 @@ export class BoxerAbility extends Ability {
     const rest = this.restPose(side, charging ? lerp(GLOVE_REST, GLOVE_SPREAD, clamp(this.charge / 0.15, 0, 1)) : GLOVE_REST)
     if (charging) {
       // Trembling with effort.
-      const j = Math.sin(this.world.time * 70 + i * 2) * 1.5
-      rest.x += Math.cos(rest.angle) * j
-      rest.y += Math.sin(rest.angle) * j
+      const j = dm.sin(this.world.time * 70 + i * 2) * 1.5
+      rest.x += dm.cos(rest.angle) * j
+      rest.y += dm.sin(rest.angle) * j
     }
     const p = this.punches[i]
     if (!p) return rest
     const d = p.dir
     const perp = d + side * (Math.PI / 2)
     const cocked: GlovePose = {
-      x: Math.cos(d) * BALL_RADIUS * 0.7 + Math.cos(perp) * BALL_RADIUS * 0.75,
-      y: Math.sin(d) * BALL_RADIUS * 0.7 + Math.sin(perp) * BALL_RADIUS * 0.75,
+      x: dm.cos(d) * BALL_RADIUS * 0.7 + dm.cos(perp) * BALL_RADIUS * 0.75,
+      y: dm.sin(d) * BALL_RADIUS * 0.7 + dm.sin(perp) * BALL_RADIUS * 0.75,
       angle: d,
     }
-    const out: GlovePose = { x: Math.cos(d) * (TIP_REACH - TIP_OFFSET), y: Math.sin(d) * (TIP_REACH - TIP_OFFSET), angle: d }
+    const out: GlovePose = { x: dm.cos(d) * (TIP_REACH - TIP_OFFSET), y: dm.sin(d) * (TIP_REACH - TIP_OFFSET), angle: d }
     if (p.t < p.pull) return blendPose(rest, cocked, easeOut(p.t / p.pull))
     if (p.t < p.pull + p.thrust) return blendPose(cocked, out, easeOut((p.t - p.pull) / p.thrust))
     return blendPose(out, rest, easeInOut((p.t - p.pull - p.thrust) / p.ret))
@@ -353,33 +354,26 @@ export function drawBoxerPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   ctx.fill()
   // Guard glove on the side, the other one mid-jab.
   const ga = aim + Math.PI / 2
-  drawGlove(ctx, bx + Math.cos(ga) * GLOVE_REST * k, by + Math.sin(ga) * GLOVE_REST * k, ga, GLOVE_LENGTH * k, 1)
+  drawGlove(ctx, bx + dm.cos(ga) * GLOVE_REST * k, by + dm.sin(ga) * GLOVE_REST * k, ga, GLOVE_LENGTH * k, 1)
   const jab = (TIP_REACH - TIP_OFFSET) * k
-  drawGlove(ctx, bx + Math.cos(aim) * jab, by + Math.sin(aim) * jab, aim, GLOVE_LENGTH * k, -1)
+  drawGlove(ctx, bx + dm.cos(aim) * jab, by + dm.sin(aim) * jab, aim, GLOVE_LENGTH * k, -1)
   // Speed lines behind the jab.
   ctx.strokeStyle = 'rgba(255,255,255,0.6)'
   ctx.lineWidth = 1.5
   ctx.beginPath()
   for (const off of [-0.32, 0, 0.32]) {
-    const px = Math.cos(aim + Math.PI / 2) * off * br
-    const py = Math.sin(aim + Math.PI / 2) * off * br
-    ctx.moveTo(bx + px + Math.cos(aim) * br * 1.2, by + py + Math.sin(aim) * br * 1.2)
-    ctx.lineTo(bx + px + Math.cos(aim) * br * 2.0, by + py + Math.sin(aim) * br * 2.0)
+    const px = dm.cos(aim + Math.PI / 2) * off * br
+    const py = dm.sin(aim + Math.PI / 2) * off * br
+    ctx.moveTo(bx + px + dm.cos(aim) * br * 1.2, by + py + dm.sin(aim) * br * 1.2)
+    ctx.lineTo(bx + px + dm.cos(aim) * br * 2.0, by + py + dm.sin(aim) * br * 2.0)
   }
   ctx.stroke()
 }
 
 export const boxerDef: CharacterDef = {
   id: 'boxer',
-  name: '拳皇',
   nameEn: 'BOXER',
-  tagline: '五连刺拳接重拳',
-  rules: [
-    `敌人靠近时左右拳交替快速出拳，每 ${PUNCH_COOLDOWN} 秒一拳`,
-    `每记刺拳命中 -${JAB_DAMAGE}，不击退`,
-    `每命中 ${COMBO_HITS} 拳蓄力 ${CHARGE_TIME} 秒，打出重拳 -${HAYMAKER_DAMAGE} 并把敌人击飞`,
-    '没有碰撞伤害，也不会回血',
-  ],
+  ruleValues: { punchCooldown: PUNCH_COOLDOWN, jabDamage: JAB_DAMAGE, comboHits: COMBO_HITS, chargeTime: CHARGE_TIME, haymakerDamage: HAYMAKER_DAMAGE },
   palette: { ball: '#dc1c18', text: '#ffffff', accent: '#d02018' },
   mirrorPalette: { ball: '#7f1d1d', text: '#fee2e2', accent: '#f87171' },
   create: (w, b) => new BoxerAbility(w, b),

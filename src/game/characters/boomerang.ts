@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -94,7 +95,7 @@ export class BoomerangAbility extends Ability {
     const e = this.enemy.pos
     const dx = e.x - o.x
     const dy = e.y - o.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     const dir = d > 1e-6 ? { x: dx / d, y: dy / d } : { x: 1, y: 0 }
     this.flight = { dir, reach: clamp(d + REACH_EXTRA, MIN_REACH, MAX_REACH), side: this.world.rng.sign(), t: 0 }
     this.world.sound('throw', 0.7, 0.8)
@@ -102,7 +103,7 @@ export class BoomerangAbility extends Ability {
 
   private orbitPos(): Vec {
     const o = this.owner.pos
-    return { x: o.x + Math.cos(this.orbitAngle) * ORBIT_RADIUS, y: o.y + Math.sin(this.orbitAngle) * ORBIT_RADIUS }
+    return { x: o.x + dm.cos(this.orbitAngle) * ORBIT_RADIUS, y: o.y + dm.sin(this.orbitAngle) * ORBIT_RADIUS }
   }
 
   /**
@@ -113,9 +114,9 @@ export class BoomerangAbility extends Ability {
   private flightPos(f: Throw): Vec {
     const o = this.owner.pos
     const ph = (Math.PI * f.t) / FLIGHT_TIME
-    const out = f.reach * Math.sin(ph)
-    const lateral = LOOP_WIDTH * f.reach * f.side * Math.sin(2 * ph)
-    const w = Math.cos(ph) ** 2
+    const out = f.reach * dm.sin(ph)
+    const lateral = LOOP_WIDTH * f.reach * f.side * dm.sin(2 * ph)
+    const w = sq(dm.cos(ph))
     const orbit = this.orbitPos()
     return {
       x: o.x + f.dir.x * out - f.dir.y * lateral + (orbit.x - o.x) * w,
@@ -132,7 +133,7 @@ export class BoomerangAbility extends Ability {
     const dx = e.pos.x - this.pos.x
     const dy = e.pos.y - this.pos.y
     if (dx * dx + dy * dy >= reach * reach) return
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     const at = { x: e.pos.x - (dx / d) * e.radius, y: e.pos.y - (dy / d) * e.radius }
     // Cooldown applies even when blocked, so a shielded target isn't re-checked every step.
     this.hitCooldown = HIT_COOLDOWN
@@ -174,8 +175,8 @@ export function drawBoomerang(ctx: CanvasRenderingContext2D, x: number, y: numbe
   const a1 = ARM_SHORT * scale
   const a2 = ARM_LONG * scale
   const th = THICKNESS * scale
-  const tip1 = { x: Math.cos(half) * a1, y: -Math.sin(half) * a1 }
-  const tip2 = { x: Math.cos(half) * a2, y: Math.sin(half) * a2 }
+  const tip1 = { x: dm.cos(half) * a1, y: -dm.sin(half) * a1 }
+  const tip2 = { x: dm.cos(half) * a2, y: dm.sin(half) * a2 }
   // Shift so the rotation centre sits roughly at the shape's centroid.
   const shiftX = -(tip1.x + tip2.x) / 3
   const shiftY = -(tip1.y + tip2.y) / 3
@@ -218,10 +219,10 @@ export function drawBoomerangPortrait(ctx: CanvasRenderingContext2D, cx: number,
   const reach = r * 2.3
   for (let i = 0; i <= 40; i++) {
     const ph = (Math.PI * i) / 40
-    const out = reach * Math.sin(ph)
-    const lat = LOOP_WIDTH * reach * Math.sin(2 * ph) * 1.4
-    const px = cx + out * Math.cos(-0.5) - lat * Math.sin(-0.5)
-    const py = cy + out * Math.sin(-0.5) + lat * Math.cos(-0.5)
+    const out = reach * dm.sin(ph)
+    const lat = LOOP_WIDTH * reach * dm.sin(2 * ph) * 1.4
+    const px = cx + out * dm.cos(-0.5) - lat * dm.sin(-0.5)
+    const py = cy + out * dm.sin(-0.5) + lat * dm.cos(-0.5)
     if (i === 0) ctx.moveTo(px, py)
     else ctx.lineTo(px, py)
   }
@@ -236,15 +237,8 @@ export function drawBoomerangPortrait(ctx: CanvasRenderingContext2D, cx: number,
 
 export const boomerangDef: CharacterDef = {
   id: 'boomerang',
-  name: '回旋镖',
   nameEn: 'BOOMERANG',
-  tagline: '去了还会回来',
-  rules: [
-    '一只回旋镖绕着本体旋转，碰到敌人也会造成伤害（被缴械时转着的不伤人）',
-    `每隔 ${THROW_COOLDOWN} 秒朝敌人掷出，画一个来回的弧线飞回本体（约 ${FLIGHT_TIME} 秒）`,
-    `命中敌人 -${BOOMERANG_DAMAGE}，回旋镖直接穿过`,
-    '去程和回程都能打中，一次投掷可以命中两下',
-  ],
+  ruleValues: { throwCooldown: THROW_COOLDOWN, flightTime: FLIGHT_TIME, boomerangDamage: BOOMERANG_DAMAGE },
   palette: { ball: '#ff9a1f', text: '#ffffff', accent: '#ff8a1f' },
   mirrorPalette: { ball: '#c2410c', text: '#ffedd5', accent: '#f97316' },
   create: (w, b) => new BoomerangAbility(w, b),

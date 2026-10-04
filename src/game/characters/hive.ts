@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, angleDiff, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
@@ -104,7 +105,7 @@ export class HiveAbility extends Ability {
     const rng = this.world.rng
     const hole = this.hole
     const e = this.enemy.pos
-    const toEnemy = Math.atan2(e.y - hole.y, e.x - hole.x)
+    const toEnemy = dm.atan2(e.y - hole.y, e.x - hole.x)
     const heading = toEnemy + (index - (this.queueSize - 1) / 2) * FAN_STEP + rng.range(-0.15, 0.15)
     this.bees.push({
       pos: { x: hole.x, y: hole.y },
@@ -130,13 +131,13 @@ export class HiveAbility extends Ability {
       if (b.life <= 0) continue
       kept.push(b)
       if (target.alive) {
-        const want = Math.atan2(target.pos.y - b.pos.y, target.pos.x - b.pos.x)
+        const want = dm.atan2(target.pos.y - b.pos.y, target.pos.x - b.pos.x)
         const turn = BEE_TURN_RATE * dt
         b.heading += clamp(angleDiff(b.heading, want), -turn, turn)
       }
-      b.dir = b.heading + WOBBLE_AMPLITUDE * Math.sin(b.wobblePhase + b.age * b.wobbleFreq)
-      b.pos.x = clamp(b.pos.x + Math.cos(b.dir) * BEE_SPEED * dt, BEE_RADIUS, size - BEE_RADIUS)
-      b.pos.y = clamp(b.pos.y + Math.sin(b.dir) * BEE_SPEED * dt, BEE_RADIUS, size - BEE_RADIUS)
+      b.dir = b.heading + WOBBLE_AMPLITUDE * dm.sin(b.wobblePhase + b.age * b.wobbleFreq)
+      b.pos.x = clamp(b.pos.x + dm.cos(b.dir) * BEE_SPEED * dt, BEE_RADIUS, size - BEE_RADIUS)
+      b.pos.y = clamp(b.pos.y + dm.sin(b.dir) * BEE_SPEED * dt, BEE_RADIUS, size - BEE_RADIUS)
       this.trySting(b, target)
     }
     this.bees = kept
@@ -149,14 +150,14 @@ export class HiveAbility extends Ability {
     const reach = target.radius + BEE_RADIUS
     if (dx * dx + dy * dy >= reach * reach) return
     b.cooldown = STING_COOLDOWN
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     this.world.damage(target, STING_DAMAGE, {
       kind: 'sting',
       source: this.owner,
       at: { x: b.pos.x + (dx / d) * BEE_RADIUS, y: b.pos.y + (dy / d) * BEE_RADIUS },
     })
     // Buzz back off so the bee circles round for another pass.
-    b.heading = Math.atan2(-dy, -dx)
+    b.heading = dm.atan2(-dy, -dx)
     b.dir = b.heading
   }
 
@@ -174,7 +175,7 @@ export class HiveAbility extends Ability {
     for (const b of this.bees) {
       const pop = clamp(b.age / POP_TIME, 0.3, 1)
       ctx.globalAlpha = fade * clamp(b.life / FADE_TIME, 0, 1)
-      drawBee(ctx, b.pos.x, b.pos.y, b.dir, R * pop, Math.sin(t * 55 + b.wobblePhase * 3))
+      drawBee(ctx, b.pos.x, b.pos.y, b.dir, R * pop, dm.sin(t * 55 + b.wobblePhase * 3))
     }
     ctx.restore()
   }
@@ -237,7 +238,7 @@ export function drawBee(ctx: CanvasRenderingContext2D, x: number, y: number, ang
   ctx.translate(x, y)
   ctx.rotate(angle)
   // Keep the bee upright (wing on top) when flying leftwards.
-  if (Math.cos(angle) < 0) ctx.scale(1, -1)
+  if (dm.cos(angle) < 0) ctx.scale(1, -1)
   ctx.lineWidth = Math.max(0.8, R * 0.035)
   ctx.strokeStyle = '#1c1206'
   // Stinger.
@@ -306,15 +307,8 @@ export function drawHivePortrait(ctx: CanvasRenderingContext2D, cx: number, cy: 
 
 export const hiveDef: CharacterDef = {
   id: 'hive',
-  name: '蜂巢',
   nameEn: 'HIVE',
-  tagline: '蜂拥而至',
-  rules: [
-    `每 ${BATCH_INTERVAL} 秒从蜂巢口放出一群蜜蜂`,
-    `第一批 ${BATCH_START} 只，之后每批多 1 只，最多 ${BATCH_MAX} 只`,
-    `蜜蜂追着敌人蜇，每下 -${STING_DAMAGE}`,
-    `蜜蜂只活 ${BEE_LIFE} 秒，场上最多 ${MAX_BEES} 只`,
-  ],
+  ruleValues: { batchInterval: BATCH_INTERVAL, batchStart: BATCH_START, batchMax: BATCH_MAX, stingDamage: STING_DAMAGE, beeLife: BEE_LIFE, maxBees: MAX_BEES },
   palette: { ball: '#feac31', text: '#ffffff', accent: '#c08a2a' },
   mirrorPalette: { ball: '#e8863a', text: '#ffffff', accent: '#a8561c' },
   create: (w, b) => new HiveAbility(w, b),

@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, distSq, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import type { CharacterDef } from './types'
@@ -72,7 +73,7 @@ export class AppleAbility extends Ability {
 
     for (const a of this.flying) {
       a.age += dt
-      a.angle += a.spin * Math.exp(-APPLE_DRAG * a.age) * dt
+      a.angle += a.spin * dm.exp(-APPLE_DRAG * a.age) * dt
     }
     const landing = this.flying.filter((a) => this.progress(a) >= 1)
     if (landing.length > 0) {
@@ -85,7 +86,7 @@ export class AppleAbility extends Ability {
 
   /** 0..1 along the throw; reaches 1 once the apple has rolled LAND_FRACTION of the way. */
   private progress(a: FlyingApple): number {
-    return Math.min(1, (1 - Math.exp(-APPLE_DRAG * a.age)) / LAND_FRACTION)
+    return Math.min(1, (1 - dm.exp(-APPLE_DRAG * a.age)) / LAND_FRACTION)
   }
 
   private flyingPos(a: FlyingApple): Vec {
@@ -97,7 +98,7 @@ export class AppleAbility extends Ability {
     const o = this.owner
     const s = this.world.size
     const ang = this.world.rng.range(0, Math.PI * 2)
-    const dir = { x: Math.cos(ang), y: Math.sin(ang) }
+    const dir = { x: dm.cos(ang), y: dm.sin(ang) }
     const m = APPLE_REACH
     const from = { x: clamp(o.pos.x + dir.x * o.radius * 0.6, m, s - m), y: clamp(o.pos.y + dir.y * o.radius * 0.6, m, s - m) }
     // Shorten the roll so the apple stops inside the arena.
@@ -168,7 +169,7 @@ export class AppleAbility extends Ability {
     for (const a of this.floor) {
       const u = (now - a.landedAt) / SQUASH_TIME
       // Squash flat on impact, then a small rebound.
-      const k = u < 1 ? 0.2 * (1 - u) ** 2 * Math.cos(u * Math.PI * 2.5) : 0
+      const k = u < 1 ? 0.2 * sq(1 - u) * dm.cos(u * Math.PI * 2.5) : 0
       drawApple(ctx, a.pos.x, a.pos.y, APPLE_SIZE, a.angle, 1 + k, 1 - k)
     }
     ctx.restore()
@@ -194,7 +195,7 @@ export class AppleAbility extends Ability {
 }
 
 function touches(center: Vec, reach: number, p: Vec): boolean {
-  return (center.x - p.x) ** 2 + (center.y - p.y) ** 2 < reach * reach
+  return distSq(center, p) < reach * reach
 }
 
 /** Fully transparent version of a hex colour, so gradients fade without darkening. */
@@ -214,7 +215,7 @@ function drawCometTrail(ctx: CanvasRenderingContext2D, pts: readonly Vec[], radi
     const b = pts[Math.min(n - 1, i + 1)]
     const dx = b.x - a.x
     const dy = b.y - a.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     if (d < 1e-3) continue
     const w = radius * (0.1 + 0.85 * (i / (n - 1)))
     left.push({ x: pts[i].x - (dy / d) * w, y: pts[i].y + (dx / d) * w })
@@ -295,7 +296,7 @@ export function drawApplePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   const trail: Vec[] = []
   for (let i = 0; i <= 12; i++) {
     const t = i / 12
-    trail.push({ x: cx - r * 2.1 + t * r * 2.0, y: cy - r * 1.3 + t * r * 1.2 - Math.sin(t * Math.PI) * r * 0.3 })
+    trail.push({ x: cx - r * 2.1 + t * r * 2.0, y: cy - r * 1.3 + t * r * 1.2 - dm.sin(t * Math.PI) * r * 0.3 })
   }
   drawCometTrail(ctx, trail, r * 0.9, color, 0.45)
   ctx.fillStyle = color
@@ -306,15 +307,8 @@ export function drawApplePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const appleDef: CharacterDef = {
   id: 'apple',
-  name: '小苹果儿',
   nameEn: 'APPLE BALL',
-  tagline: '一天一个苹果，血条不用发愁',
-  rules: [
-    `每 ${THROW_INTERVAL} 秒往随机方向扔一个苹果，滚一段停在地上（最多 ${MAX_APPLES} 个）`,
-    `敌人踩到地上的苹果 -${APPLE_DAMAGE}`,
-    `自己吃到苹果回 ${APPLE_HEAL} 点血，可以超过 100`,
-    '还在飞的苹果不会伤人',
-  ],
+  ruleValues: { throwInterval: THROW_INTERVAL, maxApples: MAX_APPLES, appleDamage: APPLE_DAMAGE, appleHeal: APPLE_HEAL },
   palette: { ball: '#e83328', text: '#ffffff', accent: '#d33636' },
   mirrorPalette: { ball: '#5fae2b', text: '#ffffff', accent: '#84cc16' },
   create: (w, b) => new AppleAbility(w, b),

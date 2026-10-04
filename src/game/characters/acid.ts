@@ -1,4 +1,5 @@
-import { type Vec, len } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, distSq, len } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import type { CharacterDef } from './types'
@@ -64,12 +65,12 @@ export class AcidAbility extends Ability {
     const rng = this.world.rng
     const sp = len(o.vel) || 1
     // Tossed backwards with some scatter.
-    const back = Math.atan2(-o.vel.y / sp, -o.vel.x / sp) + rng.range(-0.8, 0.8)
+    const back = dm.atan2(-o.vel.y / sp, -o.vel.x / sp) + rng.range(-0.8, 0.8)
     const dist = BALL_RADIUS * rng.range(1.2, 2.4)
     const s = this.world.size
     const to = {
-      x: Math.min(s - PUDDLE_RADIUS, Math.max(PUDDLE_RADIUS, o.pos.x + Math.cos(back) * dist)),
-      y: Math.min(s - PUDDLE_RADIUS, Math.max(PUDDLE_RADIUS, o.pos.y + Math.sin(back) * dist)),
+      x: Math.min(s - PUDDLE_RADIUS, Math.max(PUDDLE_RADIUS, o.pos.x + dm.cos(back) * dist)),
+      y: Math.min(s - PUDDLE_RADIUS, Math.max(PUDDLE_RADIUS, o.pos.y + dm.sin(back) * dist)),
     }
     this.globs.push({ from: { x: o.pos.x, y: o.pos.y }, to, t: 0 })
   }
@@ -81,13 +82,13 @@ export class AcidAbility extends Ability {
     for (let i = 0; i < sides; i++) {
       const a = (i / sides) * Math.PI * 2 + rng.range(-0.25, 0.25)
       const r = PUDDLE_RADIUS * rng.range(0.75, 1.15)
-      shape.push({ x: Math.cos(a) * r, y: Math.sin(a) * r })
+      shape.push({ x: dm.cos(a) * r, y: dm.sin(a) * r })
     }
     const bubbles: Vec[] = []
     for (let i = 0; i < 5; i++) {
       const a = rng.range(0, Math.PI * 2)
       const r = PUDDLE_RADIUS * 0.7 * Math.sqrt(rng.next())
-      bubbles.push({ x: Math.cos(a) * r, y: Math.sin(a) * r })
+      bubbles.push({ x: dm.cos(a) * r, y: dm.sin(a) * r })
     }
     if (this.puddles.length >= MAX_PUDDLES) this.puddles.shift()
     this.puddles.push({ pos: { x: at.x, y: at.y }, born: this.world.time, shape, bubbles })
@@ -101,7 +102,7 @@ export class AcidAbility extends Ability {
     const reach = e.radius + PUDDLE_RADIUS + TOUCH_SLACK
     let touching = 0
     for (const p of this.puddles) {
-      if ((e.pos.x - p.pos.x) ** 2 + (e.pos.y - p.pos.y) ** 2 < reach * reach) touching++
+      if (distSq(e.pos, p.pos) < reach * reach) touching++
     }
     if (touching > 0) {
       // Fresh contact starts the burn immediately.
@@ -133,7 +134,7 @@ export class AcidAbility extends Ability {
       if (fresh) {
         ctx.fillStyle = '#a3e635'
         for (const [i, b] of p.bubbles.entries()) {
-          const pulse = 0.5 + 0.5 * Math.sin(now * 6 + i * 1.9)
+          const pulse = 0.5 + 0.5 * dm.sin(now * 6 + i * 1.9)
           ctx.beginPath()
           ctx.arc(p.pos.x + b.x * grow, p.pos.y + b.y * grow, 1.2 + pulse * 1.6, 0, Math.PI * 2)
           ctx.fill()
@@ -151,7 +152,7 @@ export class AcidAbility extends Ability {
     for (const g of this.globs) {
       const u = g.t / GLOB_FLIGHT
       ctx.beginPath()
-      ctx.arc(g.from.x + (g.to.x - g.from.x) * u, g.from.y + (g.to.y - g.from.y) * u - Math.sin(u * Math.PI) * 10, 3.5, 0, Math.PI * 2)
+      ctx.arc(g.from.x + (g.to.x - g.from.x) * u, g.from.y + (g.to.y - g.from.y) * u - dm.sin(u * Math.PI) * 10, 3.5, 0, Math.PI * 2)
       ctx.fill()
     }
     // Corrosion speckles on a burning enemy.
@@ -163,12 +164,12 @@ export class AcidAbility extends Ability {
       ctx.fillStyle = 'rgba(20,83,45,0.75)'
       const t = Math.floor(this.world.time * 8)
       for (let i = 0; i < 9; i++) {
-        const h = Math.sin((t + i * 7.3) * 12.9898) * 43758.5453
+        const h = dm.sin((t + i * 7.3) * 12.9898) * 43758.5453
         const u = h - Math.floor(h)
         const a = u * Math.PI * 2
         const r = e.radius * (0.2 + 0.75 * ((i * 0.37) % 1))
         ctx.beginPath()
-        ctx.arc(e.pos.x + Math.cos(a) * r, e.pos.y + Math.sin(a) * r, 2.5, 0, Math.PI * 2)
+        ctx.arc(e.pos.x + dm.cos(a) * r, e.pos.y + dm.sin(a) * r, 2.5, 0, Math.PI * 2)
         ctx.fill()
       }
     }
@@ -199,8 +200,8 @@ export function drawAcidPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: 
   for (const [dx, dy, c] of blobs) {
     const shape = Array.from({ length: 6 }, (_, i) => {
       const a = (i / 6) * Math.PI * 2
-      const rr = r * 0.5 * (0.8 + 0.3 * Math.sin(i * 2.7 + dx))
-      return { x: Math.cos(a) * rr, y: Math.sin(a) * rr }
+      const rr = r * 0.5 * (0.8 + 0.3 * dm.sin(i * 2.7 + dx))
+      return { x: dm.cos(a) * rr, y: dm.sin(a) * rr }
     })
     drawPuddle(ctx, { pos: { x: cx + dx * r, y: cy + dy * r }, shape }, 1, c)
   }
@@ -212,15 +213,8 @@ export function drawAcidPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: 
 
 export const acidDef: CharacterDef = {
   id: 'acid',
-  name: '强酸',
   nameEn: 'ACID BALL',
-  tagline: '走过的地方寸草不生',
-  rules: [
-    `每 ${SPIT_INTERVAL} 秒往身后吐一滩强酸`,
-    `敌人碰到酸液就被腐蚀：每 0.5 秒 -${ACID_DAMAGE}，离开后还会再烧约 0.5 秒`,
-    `同时踩着好几滩会成倍叠加（最多 ${MAX_STACK} 倍）`,
-    `酸液一直留在场上（最多 ${MAX_PUDDLES} 滩），自己不受影响`,
-  ],
+  ruleValues: { spitInterval: SPIT_INTERVAL, acidDamage: ACID_DAMAGE, maxStack: MAX_STACK, maxPuddles: MAX_PUDDLES },
   palette: { ball: '#0f542c', text: '#ffffff', accent: '#2f8a4f' },
   mirrorPalette: { ball: '#3f6212', text: '#ecfccb', accent: '#84cc16' },
   create: (w, b) => new AcidAbility(w, b),

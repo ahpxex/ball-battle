@@ -1,7 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { BattleController, SPEEDS, type HudSnapshot, type Speed } from '../game/BattleController'
+import { useTranslation } from 'react-i18next'
 import { sfx } from '../game/audio/Sfx'
 import type { MatchSetup, MatchSide } from '../game/match'
+import { useCharacterText } from '../i18n/characters'
 import { ResultOverlay } from './ResultOverlay'
 
 interface BattleScreenProps {
@@ -29,6 +31,67 @@ const SIDEBAR_MAX = 380
 
 export function BattleScreen({ setup, muted, onToggleMute, onBack }: BattleScreenProps) {
   const [controller] = useState(() => new BattleController(setup, sfx))
+  const hud = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return
+      if (e.code === 'Space') {
+        e.preventDefault()
+        controller.togglePause()
+      } else if (e.key === 'r' || e.key === 'R') controller.restart()
+      else if (e.key === 'n' || e.key === 'N') controller.rematch()
+      else if (e.key === 'm' || e.key === 'M') onToggleMute()
+      else if (e.key === 'Escape') onBack()
+      else if (['1', '2', '3', '4'].includes(e.key)) controller.setSpeed(SPEEDS[Number(e.key) - 1])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [controller, onBack, onToggleMute])
+
+  const [left, right] = controller.sides
+  return (
+    <BattleStage
+      controller={controller}
+      title={<Title left={left} right={right} />}
+      panel={
+        <>
+          <HpBars hud={hud} left={left} right={right} />
+          <Controls
+            hud={hud}
+            muted={muted}
+            onPause={() => controller.togglePause()}
+            onSpeed={(s) => controller.setSpeed(s)}
+            onReplay={() => controller.restart()}
+            onRematch={() => controller.rematch()}
+            onToggleMute={onToggleMute}
+            onBack={onBack}
+          />
+        </>
+      }
+      overlay={
+        hud.phase === 'finished' && (
+          <ResultOverlay hud={hud} sides={controller.sides} onReplay={() => controller.restart()} onRematch={() => controller.rematch()} onBack={onBack} />
+        )
+      }
+    />
+  )
+}
+
+interface BattleStageProps {
+  controller: BattleController
+  /** Shown above the arena, or atop the side panel in the side-by-side layout. */
+  title: ReactNode
+  /** HUD under (or beside) the arena. */
+  panel: ReactNode
+  /** Drawn over the arena itself (e.g. emotes). */
+  arenaOverlay?: ReactNode
+  /** Full-screen layer (result dialogs). */
+  overlay?: ReactNode
+}
+
+/** The arena canvas sized to the viewport, with the HUD stacked below it or beside it, whichever gives a bigger arena. */
+export function BattleStage({ controller, title, panel, arenaOverlay, overlay }: BattleStageProps) {
   const hud = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -70,53 +133,15 @@ export function BattleScreen({ setup, muted, onToggleMute, onBack }: BattleScree
     return () => ro.disconnect()
   }, [controller, stage.layout])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return
-      if (e.code === 'Space') {
-        e.preventDefault()
-        controller.togglePause()
-      } else if (e.key === 'r' || e.key === 'R') controller.restart()
-      else if (e.key === 'n' || e.key === 'N') controller.rematch()
-      else if (e.key === 'm' || e.key === 'M') onToggleMute()
-      else if (e.key === 'Escape') onBack()
-      else if (['1', '2', '3', '4'].includes(e.key)) controller.setSpeed(SPEEDS[Number(e.key) - 1])
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [controller, onBack, onToggleMute])
-
-  const [left, right] = controller.sides
   const { size, layout, sidebar } = stage
   const sideLayout = layout === 'side'
   const hudWidth = sideLayout ? sidebar : Math.max(Math.round(size * ARENA_FRACTION), 300)
-
-  const hudPanel = (
-    <div ref={sideLayout ? undefined : hudRef} className="@container flex max-w-full flex-col gap-3" style={{ width: hudWidth }}>
-      {sideLayout && <Title left={left} right={right} />}
-      <HpBars hud={hud} left={left} right={right} />
-      <Controls
-        hud={hud}
-        muted={muted}
-        onPause={() => controller.togglePause()}
-        onSpeed={(s) => controller.setSpeed(s)}
-        onReplay={() => controller.restart()}
-        onRematch={() => controller.rematch()}
-        onToggleMute={onToggleMute}
-        onBack={onBack}
-      />
-    </div>
-  )
 
   return (
     <div className="h-dvh overflow-hidden p-3 sm:p-5">
       <div ref={frameRef} className="flex h-full w-full items-center justify-center">
         <div className={sideLayout ? 'flex max-w-full items-center gap-5' : 'flex max-w-full flex-col items-center gap-3'}>
-          {!sideLayout && (
-            <div ref={headRef}>
-              <Title left={left} right={right} />
-            </div>
-          )}
+          {!sideLayout && <div ref={headRef}>{title}</div>}
           <div className="relative shrink-0" style={{ width: size, height: size }}>
             <canvas ref={canvasRef} className="block h-full w-full" style={{ width: size, height: size }} />
             <PhaseBanner hud={hud} />
@@ -125,18 +150,22 @@ export function BattleScreen({ setup, muted, onToggleMute, onBack }: BattleScree
                 <span className="pixel-shadow font-pixel text-4xl font-bold text-white">PAUSED</span>
               </div>
             )}
+            {arenaOverlay}
           </div>
-          {hudPanel}
+          <div ref={sideLayout ? undefined : hudRef} className="@container flex max-w-full flex-col gap-3" style={{ width: hudWidth }}>
+            {sideLayout && title}
+            {panel}
+          </div>
         </div>
       </div>
-      {hud.phase === 'finished' && (
-        <ResultOverlay hud={hud} sides={controller.sides} onReplay={() => controller.restart()} onRematch={() => controller.rematch()} onBack={onBack} />
-      )}
+      {overlay}
     </div>
   )
 }
 
-function Title({ left, right }: { left: MatchSide; right: MatchSide }) {
+export function Title({ left, right }: { left: MatchSide; right: MatchSide }) {
+  const { t } = useTranslation()
+  const text = useCharacterText()
   return (
     <div className="text-center">
       <h1 className="pixel-shadow flex flex-wrap items-baseline justify-center gap-x-3 font-pixel text-xl font-bold sm:gap-x-4 sm:text-2xl lg:text-4xl">
@@ -145,7 +174,7 @@ function Title({ left, right }: { left: MatchSide; right: MatchSide }) {
         <span style={{ color: right.palette.accent }}>{right.def.nameEn}</span>
       </h1>
       <p className="mt-1 text-xs text-zinc-500 sm:text-sm">
-        {left.def.name} 对 {right.def.name}
+        {text.name(left.def.id)} {t('common.vs')} {text.name(right.def.id)}
       </p>
     </div>
   )
@@ -178,22 +207,24 @@ function PhaseBanner({ hud }: { hud: HudSnapshot }) {
   return null
 }
 
-function HpBars({ hud, left, right }: { hud: HudSnapshot; left: MatchSide; right: MatchSide }) {
+export function HpBars({ hud, left, right, labels }: { hud: HudSnapshot; left: MatchSide; right: MatchSide; labels?: readonly [string, string] }) {
   return (
     <div className="grid w-full grid-cols-2 gap-3">
-      <HpBar hp={hud.hp[0]} side={left} align="left" />
-      <HpBar hp={hud.hp[1]} side={right} align="right" />
+      <HpBar hp={hud.hp[0]} side={left} align="left" label={labels?.[0]} />
+      <HpBar hp={hud.hp[1]} side={right} align="right" label={labels?.[1]} />
     </div>
   )
 }
 
-function HpBar({ hp, side, align }: { hp: number; side: MatchSide; align: 'left' | 'right' }) {
+function HpBar({ hp, side, align, label }: { hp: number; side: MatchSide; align: 'left' | 'right'; label?: string }) {
+  const text = useCharacterText()
   const pct = Math.min(100, hp)
   const over = Math.max(0, hp - 100)
   return (
     <div className={`flex flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
       <div className={`flex w-full items-baseline gap-2 text-xs ${align === 'right' ? 'flex-row-reverse' : ''}`}>
-        <span className="font-semibold text-zinc-300">{side.def.name}</span>
+        <span className="font-semibold text-zinc-300">{text.name(side.def.id)}</span>
+        {label && <span className="min-w-0 truncate text-zinc-500">{label}</span>}
         <span className="font-pixel text-sm font-bold" style={{ color: side.palette.accent }}>
           {hp}
         </span>
@@ -232,6 +263,7 @@ interface ControlsProps {
 }
 
 function Controls({ hud, muted, onPause, onSpeed, onReplay, onRematch, onToggleMute, onBack }: ControlsProps) {
+  const { t } = useTranslation()
   const mm = String(Math.floor(hud.seconds / 60)).padStart(2, '0')
   const ss = String(hud.seconds % 60).padStart(2, '0')
   const btn =
@@ -240,24 +272,24 @@ function Controls({ hud, muted, onPause, onSpeed, onReplay, onRematch, onToggleM
   return (
     <div className="flex w-full flex-col gap-2 @[540px]:flex-row @[540px]:flex-wrap @[540px]:items-center @[540px]:justify-between">
       <div className="flex w-full items-center gap-2 @[540px]:w-auto">
-        <button type="button" className={btn} onClick={onBack} title="返回选角 (Esc)">
-          ← 选角
+        <button type="button" className={btn} onClick={onBack} title={t('battle.backHint')}>
+          {t('battle.back')}
         </button>
         <span className="font-pixel text-sm tabular-nums text-zinc-400">
           {mm}:{ss}
         </span>
-        {hud.overtime && <span className="rounded bg-fuchsia-600/80 px-1.5 py-0.5 text-[10px] font-bold text-white">加时</span>}
-        <button type="button" className={`${btn} ml-auto`} onClick={onToggleMute} title="静音 (M)" aria-pressed={muted}>
+        {hud.overtime && <span className="rounded bg-fuchsia-600/80 px-1.5 py-0.5 text-[10px] font-bold text-white">{t('battle.overtime')}</span>}
+        <button type="button" className={`${btn} ml-auto`} onClick={onToggleMute} title={t('battle.mute')} aria-pressed={muted}>
           {muted ? '🔇' : '🔊'}
         </button>
       </div>
 
       <div className="flex items-center justify-between gap-1.5 @[540px]:justify-end">
-        <button type="button" className={btn} onClick={onPause} disabled={hud.phase === 'finished'} title="暂停 / 继续 (空格)">
+        <button type="button" className={btn} onClick={onPause} disabled={hud.phase === 'finished'} title={t('battle.pauseHint')}>
           {hud.paused ? '▶' : '❚❚'}
-          <span className="@max-[340px]:sr-only"> {hud.paused ? '继续' : '暂停'}</span>
+          <span className="@max-[340px]:sr-only"> {hud.paused ? t('battle.resume') : t('battle.pause')}</span>
         </button>
-        <div className="flex overflow-hidden rounded-md border border-zinc-800" role="radiogroup" aria-label="速度">
+        <div className="flex overflow-hidden rounded-md border border-zinc-800" role="radiogroup" aria-label={t('battle.speed')}>
           {SPEEDS.map((s, i) => (
             <button
               key={s}
@@ -265,7 +297,7 @@ function Controls({ hud, muted, onPause, onSpeed, onReplay, onRematch, onToggleM
               role="radio"
               aria-checked={hud.speed === s}
               onClick={() => onSpeed(s)}
-              title={`速度 ${s}x (${i + 1})`}
+              title={t('battle.speedHint', { speed: s, key: i + 1 })}
               className={`whitespace-nowrap px-2 py-1.5 text-xs tabular-nums transition ${
                 hud.speed === s ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-400 hover:text-white'
               }`}
@@ -274,15 +306,15 @@ function Controls({ hud, muted, onPause, onSpeed, onReplay, onRematch, onToggleM
             </button>
           ))}
         </div>
-        <button type="button" className={btn} onClick={onReplay} title="同种子重播 (R)">
-          ↻<span className="@max-[340px]:sr-only"> 重播</span>
+        <button type="button" className={btn} onClick={onReplay} title={t('battle.replayHint')}>
+          ↻<span className="@max-[340px]:sr-only"> {t('battle.replay')}</span>
         </button>
-        <button type="button" className={btn} onClick={onRematch} title="新种子再战 (N)">
-          🎲<span className="@max-[340px]:sr-only"> 再战</span>
+        <button type="button" className={btn} onClick={onRematch} title={t('battle.rematchHint')}>
+          🎲<span className="@max-[340px]:sr-only"> {t('battle.rematch')}</span>
         </button>
       </div>
 
-      <span className="w-full text-center font-mono text-[10px] text-zinc-600">种子 {hud.seed}</span>
+      <span className="w-full text-center font-mono text-[10px] text-zinc-600">{t('battle.seed', { seed: hud.seed })}</span>
     </div>
   )
 }

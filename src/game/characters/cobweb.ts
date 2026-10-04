@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
 import { type Vec, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -42,7 +43,7 @@ export class CobwebAbility extends Ability {
       speed: [40, 140],
       size: [1.5, 3],
       life: [0.2, 0.4],
-      direction: Math.atan2(e.normal.y, e.normal.x),
+      direction: dm.atan2(e.normal.y, e.normal.x),
       spread: 1.1,
     })
     this.world.sound('place', 0.3, 1.6)
@@ -80,8 +81,8 @@ export class CobwebAbility extends Ability {
     ctx.lineWidth = 1
     ctx.beginPath()
     for (const a of [0.3, 1.4, 2.5, 3.9, 5.1]) {
-      ctx.moveTo(e.pos.x + Math.cos(a) * r, e.pos.y + Math.sin(a) * r)
-      ctx.lineTo(e.pos.x + Math.cos(a + 2.4) * r, e.pos.y + Math.sin(a + 2.4) * r)
+      ctx.moveTo(e.pos.x + dm.cos(a) * r, e.pos.y + dm.sin(a) * r)
+      ctx.lineTo(e.pos.x + dm.cos(a + 2.4) * r, e.pos.y + dm.sin(a + 2.4) * r)
     }
     ctx.stroke()
     ctx.restore()
@@ -110,8 +111,8 @@ export class CobwebAbility extends Ability {
         const my = (t.anchor.y + o.y) / 2
         const dx = o.x - t.anchor.x
         const dy = o.y - t.anchor.y
-        const l = Math.hypot(dx, dy) || 1
-        const wob = Math.sin(now * 60) * twang * 7
+        const l = dm.hypot(dx, dy) || 1
+        const wob = dm.sin(now * 60) * twang * 7
         ctx.quadraticCurveTo(mx - (dy / l) * wob, my + (dx / l) * wob, o.x, o.y)
       } else {
         ctx.lineTo(o.x, o.y)
@@ -152,15 +153,8 @@ export function drawCobwebPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const cobwebDef: CharacterDef = {
   id: 'cobweb',
-  name: '蜘蛛网',
   nameEn: 'COBWEB',
-  tagline: '每一根丝都连着我',
-  rules: [
-    '每次撞墙都会在墙上固定一根蛛丝，另一端连着自己',
-    '蛛丝跟着本体扫过整个场地',
-    `敌人每碰到一根蛛丝 -${THREAD_DAMAGE}，并被短暂减速`,
-    `蛛丝最多 ${MAX_THREADS} 根，越多越难躲`,
-  ],
+  ruleValues: { threadDamage: THREAD_DAMAGE, maxThreads: MAX_THREADS },
   palette: { ball: '#f4f4f5', text: '#52525b', accent: '#e4e4e7' },
   mirrorPalette: { ball: '#9ca3af', text: '#1f2937', accent: '#9ca3af' },
   create: (w, b) => new CobwebAbility(w, b),

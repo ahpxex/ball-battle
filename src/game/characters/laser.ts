@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
 import { type Vec, clamp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -31,7 +32,7 @@ export class LaserV1Ability extends Ability {
     this.tick -= dt
     if (this.tick > 0) return
     this.tick += V1_TICK
-    const d = Math.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) || 1
+    const d = dm.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) || 1
     const at = { x: e.pos.x - ((e.pos.x - o.pos.x) / d) * e.radius, y: e.pos.y - ((e.pos.y - o.pos.y) / d) * e.radius }
     this.world.damage(e, V1_DAMAGE, { kind: 'laser', source: o, at })
   }
@@ -40,12 +41,12 @@ export class LaserV1Ability extends Ability {
     if (!this.firing || this.presence <= 0) return
     const o = this.owner
     const e = this.enemy
-    const d = Math.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) || 1
+    const d = dm.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) || 1
     const ux = (e.pos.x - o.pos.x) / d
     const uy = (e.pos.y - o.pos.y) / d
     const a = { x: o.pos.x + ux * o.radius, y: o.pos.y + uy * o.radius }
     const b = { x: e.pos.x - ux * e.radius, y: e.pos.y - uy * e.radius }
-    drawBeam(ctx, a, b, '#ff8925', '#ffd29a', 5 + Math.sin(this.world.time * 40) * 1)
+    drawBeam(ctx, a, b, '#ff8925', '#ffd29a', 5 + dm.sin(this.world.time * 40) * 1)
   }
 }
 
@@ -294,15 +295,8 @@ export function drawLaserV3Portrait(ctx: CanvasRenderingContext2D, cx: number, c
 
 export const laserV1Def: CharacterDef = {
   id: 'laserV1',
-  name: '激光 V1',
   nameEn: 'LASER V1',
-  tagline: '靠近就烧',
-  rules: [
-    '敌人进入射程时自动锁定，持续发射光束',
-    `光束每 ${V1_TICK} 秒 -${V1_DAMAGE}`,
-    `射程约 ${(V1_RANGE / BALL_RADIUS).toFixed(0)} 个球半径，离开射程光束就断`,
-    '没有冷却，也不会随时间变强',
-  ],
+  ruleValues: { v1Tick: V1_TICK, v1Damage: V1_DAMAGE, rangeRadii: (V1_RANGE / BALL_RADIUS).toFixed(0) },
   palette: { ball: '#ff8925', text: '#ffffff', accent: '#fa8228' },
   mirrorPalette: { ball: '#c2410c', text: '#ffedd5', accent: '#f97316' },
   create: (w, b) => new LaserV1Ability(w, b),
@@ -311,15 +305,8 @@ export const laserV1Def: CharacterDef = {
 
 export const laserV2Def: CharacterDef = {
   id: 'laserV2',
-  name: '激光 V2',
   nameEn: 'LASER V2',
-  tagline: '走过的路都会发光',
-  rules: [
-    '两次撞墙之间飞过的路线，会凝固成一条永久的激光线',
-    `敌人碰到一条激光线 -${V2_DAMAGE}（同一条线 1 秒内只算一次）`,
-    `激光线越积越多，最多 ${V2_MAX_LINES} 条，旧线会消失`,
-    '自己的激光线伤不到自己',
-  ],
+  ruleValues: { v2Damage: V2_DAMAGE, v2MaxLines: V2_MAX_LINES },
   palette: { ball: '#913ff5', text: '#ffffff', accent: '#9d55f5' },
   mirrorPalette: { ball: '#4c1d95', text: '#ede9fe', accent: '#8b5cf6' },
   create: (w, b) => new LaserV2Ability(w, b),
@@ -328,15 +315,8 @@ export const laserV2Def: CharacterDef = {
 
 export const laserV3Def: CharacterDef = {
   id: 'laserV3',
-  name: '激光 V3',
   nameEn: 'LASER V3',
-  tagline: '墙上全是炮台',
-  rules: [
-    '每次撞墙在撞击点装一座激光炮台',
-    `每座炮台每 ${V3_PERIOD} 秒朝对面墙射一道贯穿全场的光束`,
-    `被光束扫到 -${V3_DAMAGE}，开火前有淡红色预警线`,
-    `炮台会一直保留（最多 ${V3_MAX_TURRETS} 座）`,
-  ],
+  ruleValues: { v3Period: V3_PERIOD, v3Damage: V3_DAMAGE, v3MaxTurrets: V3_MAX_TURRETS },
   palette: { ball: '#62202a', text: '#ffffff', accent: '#b8394a' },
   mirrorPalette: { ball: '#881337', text: '#ffe4e6', accent: '#fb7185' },
   create: (w, b) => new LaserV3Ability(w, b),

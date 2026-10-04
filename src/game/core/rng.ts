@@ -38,6 +38,7 @@ export class Rng {
   }
 }
 
+/** A fresh, unpredictable match seed (chosen outside the simulation, so it needn't be reproducible). */
 export function randomSeed(): number {
-  return Math.floor(Math.random() * 0xffffffff) >>> 0
+  return crypto.getRandomValues(new Uint32Array(1))[0]
 }

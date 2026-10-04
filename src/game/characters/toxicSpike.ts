@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { distanceToTriangle } from '../core/geometry'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -41,8 +42,8 @@ export class ToxicSpikeAbility extends Ability {
   override onWallBounce(e: WallBounce): void {
     if (this.owner.disarmed) return
     const tilt = this.world.rng.range(-0.28, 0.28)
-    const c = Math.cos(tilt)
-    const s = Math.sin(tilt)
+    const c = dm.cos(tilt)
+    const s = dm.sin(tilt)
     const n = e.normal
     this.spikes.push({
       base: { x: e.point.x, y: e.point.y },
@@ -57,7 +58,7 @@ export class ToxicSpikeAbility extends Ability {
 
     this.world.effects.burst(
       { x: e.point.x + n.x * 10, y: e.point.y + n.y * 10 },
-      { count: 8, color: ['#86efac', '#4ade80', '#a3e635'], shape: 'smoke', speed: [20, 90], size: [5, 10], life: [0.4, 0.8], endScale: 2, direction: Math.atan2(n.y, n.x), spread: 1.2 },
+      { count: 8, color: ['#86efac', '#4ade80', '#a3e635'], shape: 'smoke', speed: [20, 90], size: [5, 10], life: [0.4, 0.8], endScale: 2, direction: dm.atan2(n.y, n.x), spread: 1.2 },
     )
     this.world.sound('place', 0.45, 1.2)
   }
@@ -136,15 +137,8 @@ export function drawToxicSpikePortrait(ctx: CanvasRenderingContext2D, cx: number
 
 export const toxicSpikeDef: CharacterDef = {
   id: 'toxicSpike',
-  name: '毒刺',
   nameEn: 'TOXIC SPIKE',
-  tagline: '整个场地都是我的陷阱',
-  rules: [
-    '每次撞墙都会在撞击点插下一根毒刺',
-    `敌人碰到毒刺 -${SPIKE_DAMAGE}，并叠加一层中毒`,
-    `每层中毒每秒 -1，持续 ${POISON_TICKS} 秒，最多 ${MAX_POISON_STACKS} 层`,
-    `毒刺一直保留（最多 ${MAX_SPIKES} 根），越打越强`,
-  ],
+  ruleValues: { spikeDamage: SPIKE_DAMAGE, poisonTicks: POISON_TICKS, maxPoisonStacks: MAX_POISON_STACKS, maxSpikes: MAX_SPIKES },
   palette: { ball: '#7cc520', text: '#ffffff', accent: '#84cc16' },
   mirrorPalette: { ball: '#166534', text: '#dcfce7', accent: '#22c55e' },
   create: (w, b) => new ToxicSpikeAbility(w, b),

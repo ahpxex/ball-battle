@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, cube, distSq, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import type { BallContact } from '../engine/types'
@@ -103,7 +104,7 @@ export class CactusAbility extends Ability {
       const d = rng.range(SEED_MIN_DISTANCE, SEED_MAX_DISTANCE)
       this.seeds.push({
         from: { x: o.x, y: o.y },
-        to: { x: clamp(o.x + Math.cos(a) * d, margin, s - margin), y: clamp(o.y + Math.sin(a) * d, margin, s - margin) },
+        to: { x: clamp(o.x + dm.cos(a) * d, margin, s - margin), y: clamp(o.y + dm.sin(a) * d, margin, s - margin) },
         age: 0,
       })
     }
@@ -136,11 +137,11 @@ export class CactusAbility extends Ability {
       kept.push(c)
       if (!e.alive || now - c.lastHit < CACTUS_HIT_COOLDOWN) continue
       const reach = e.radius + CACTUS_REACH
-      if ((e.pos.x - c.pos.x) ** 2 + (e.pos.y - c.pos.y) ** 2 >= reach * reach) continue
+      if (distSq(e.pos, c.pos) >= reach * reach) continue
       c.lastHit = now
       const dx = e.pos.x - c.pos.x
       const dy = e.pos.y - c.pos.y
-      const d = Math.hypot(dx, dy) || 1
+      const d = dm.hypot(dx, dy) || 1
       const at = { x: c.pos.x + (dx / d) * CACTUS_REACH, y: c.pos.y + (dy / d) * CACTUS_REACH }
       this.world.damage(e, CACTUS_DAMAGE, { kind: 'thorn', source: this.owner, at })
     }
@@ -154,7 +155,7 @@ export class CactusAbility extends Ability {
     for (const c of this.cacti) {
       const grow = clamp(c.age / SPROUT_TIME, 0, 1)
       // Ease-out-back so sprouts overshoot slightly.
-      const g = 1 + 2.2 * (grow - 1) ** 3 + 1.2 * (grow - 1) ** 2
+      const g = 1 + 2.2 * cube(grow - 1) + 1.2 * sq(grow - 1)
       const vanish = clamp((CACTUS_LIFETIME - c.age) / VANISH_TIME, 0, 1)
       ctx.globalAlpha = fade * vanish
       drawSaguaro(ctx, c.pos.x, c.pos.y, CACTUS_HEIGHT * Math.max(0.05, g))
@@ -173,7 +174,7 @@ export class CactusAbility extends Ability {
   override renderFront(ctx: CanvasRenderingContext2D): void {
     const fade = this.presence
     if (fade <= 0 || this.seeds.length === 0) return
-    const norm = 1 - Math.exp(-SEED_EASE)
+    const norm = 1 - dm.exp(-SEED_EASE)
     ctx.save()
     ctx.globalAlpha = fade
     ctx.fillStyle = '#1e8a30'
@@ -181,7 +182,7 @@ export class CactusAbility extends Ability {
     ctx.lineWidth = 1
     for (const sd of this.seeds) {
       const u = clamp(sd.age / SEED_FLIGHT, 0, 1)
-      const k = (1 - Math.exp(-SEED_EASE * u)) / norm
+      const k = (1 - dm.exp(-SEED_EASE * u)) / norm
       ctx.beginPath()
       ctx.arc(sd.from.x + (sd.to.x - sd.from.x) * k, sd.from.y + (sd.to.y - sd.from.y) * k, SEED_RADIUS, 0, Math.PI * 2)
       ctx.fill()
@@ -207,10 +208,10 @@ function drawSpines(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: nu
   const s = r * 0.12
   ctx.beginPath()
   for (const a of [2.35, 3.3, 4.1, 0.25, 1.15, 1.8]) {
-    const px = cx + Math.cos(a) * r * 0.78
-    const py = cy + Math.sin(a) * r * 0.78
-    const ox = Math.cos(a)
-    const oy = Math.sin(a)
+    const px = cx + dm.cos(a) * r * 0.78
+    const py = cy + dm.sin(a) * r * 0.78
+    const ox = dm.cos(a)
+    const oy = dm.sin(a)
     // "v" opening towards the centre, tip on the outside.
     ctx.moveTo(px - ox * s - oy * s * 0.7, py - oy * s + ox * s * 0.7)
     ctx.lineTo(px, py)
@@ -229,7 +230,7 @@ function drawFlower(ctx: CanvasRenderingContext2D, x: number, y: number, size: n
   for (let i = 0; i < 5; i++) {
     const a = -Math.PI / 2 + (i / 5) * Math.PI * 2
     ctx.beginPath()
-    ctx.arc(x + Math.cos(a) * size * 0.27, y + Math.sin(a) * size * 0.27, pr, 0, Math.PI * 2)
+    ctx.arc(x + dm.cos(a) * size * 0.27, y + dm.sin(a) * size * 0.27, pr, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
   }
@@ -308,15 +309,8 @@ export function drawCactusPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const cactusDef: CharacterDef = {
   id: 'cactus',
-  name: '仙人掌',
   nameEn: 'CACTUS',
-  tagline: '一身是刺别碰我',
-  rules: [
-    `浑身是刺，撞到敌人 -${CONTACT_DAMAGE}（每 ${CONTACT_COOLDOWN} 秒最多一次）`,
-    `扎中敌人时向四周喷出 ${SEEDS} 颗种子（冷却 ${BURST_COOLDOWN} 秒），太久没扎中也会自己喷`,
-    `种子落地长成小仙人掌，碰到敌人 -${CACTUS_DAMAGE}（每棵每 ${CACTUS_HIT_COOLDOWN} 秒一次）`,
-    `仙人掌存在 ${CACTUS_LIFETIME} 秒后整批消失，不会扎到自己`,
-  ],
+  ruleValues: { contactDamage: CONTACT_DAMAGE, contactCooldown: CONTACT_COOLDOWN, seeds: SEEDS, burstCooldown: BURST_COOLDOWN, cactusDamage: CACTUS_DAMAGE, cactusHitCooldown: CACTUS_HIT_COOLDOWN, cactusLifetime: CACTUS_LIFETIME },
   palette: { ball: '#619242', text: '#ffffff', accent: '#609040' },
   mirrorPalette: { ball: '#3f6212', text: '#ecfccb', accent: '#84cc16' },
   create: (w, b) => new CactusAbility(w, b),

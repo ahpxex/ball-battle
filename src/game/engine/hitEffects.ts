@@ -14,6 +14,8 @@ type HitEffect = (h: HitContext) => void
 
 const BLOOD = ['#dc2626', '#b91c1c', '#f87171'] as const
 const SMOKE = ['#d4d4d8', '#a1a1aa', '#71717a'] as const
+/** Lowest y a damage number may spawn at and still float up inside the arena. */
+const TEXT_MIN_Y = 52
 
 /** Particles and sound for each kind of damage. Purely cosmetic. */
 const HIT_EFFECTS: Record<DamageKind, HitEffect> = {
@@ -42,7 +44,62 @@ const HIT_EFFECTS: Record<DamageKind, HitEffect> = {
     world.effects.burst(at, { count: 5, color: ['#ffffff', '#e5e7eb'], shape: 'spark', speed: [80, 220], size: [2, 4], life: [0.2, 0.45] })
     world.sound('thread', 0.5)
   },
-  hook: ({ world, at, dmg }) => {
+  rebirth: ({ world, at, dmg }) => {
+    world.effects.burst(at, { count: 12, color: ['#ff5a1f', '#ffb02e', '#fde68a'], speed: [80, 260], size: [2, 5], life: [0.3, 0.6], gravity: -60 })
+    world.sound('explosion', clamp(0.3 + dmg / 20, 0.3, 0.9), 1.2)
+  },
+  turtleShell: ({ world, at }) => {
+    world.effects.burst(at, { count: 8, color: ['#6fcf7a', '#3f8f4a', '#ffffff'], shape: 'shard', speed: [100, 300], size: [2, 5], life: [0.2, 0.5] })
+    world.sound('clack', 0.8, 0.8)
+  },
+  reflect: ({ world, at }) => {
+    world.effects.burst(at, { count: 10, color: ['#e2e8f0', '#ffffff', '#94a3b8'], shape: 'shard', speed: [100, 320], size: [2, 4.5], life: [0.2, 0.45] })
+    world.sound('zap', 0.5, 1.6)
+  },
+  steal: ({ world, at }) => {
+    world.effects.burst(at, { count: 8, color: ['#facc15', '#fde68a', '#ffffff'], shape: 'spark', speed: [80, 240], size: [1.5, 3.5], life: [0.2, 0.4] })
+    world.sound('hit', 0.5, 1.3)
+  },
+  puffer: ({ world, at }) => {
+    world.effects.burst(at, { count: 10, color: BLOOD, speed: [60, 220], size: [2, 5], life: [0.3, 0.6], gravity: 120 })
+    world.sound('spike', 0.7, 1.2)
+  },
+  snowRoll: ({ world, at, dmg }) => {
+    world.effects.burst(at, { count: 12, color: ['#ffffff', '#e0f2fe', '#bae6fd'], speed: [60, 240], size: [2, 5], life: [0.3, 0.7], gravity: 160 })
+    world.sound('hit', clamp(0.4 + dmg / 12, 0.4, 1), 0.8)
+  },
+  gravityFall: ({ world, at, dmg }) => {
+    world.effects.burst(at, { count: 10, color: ['#818cf8', '#c7d2fe', '#ffffff'], speed: [60, 220], size: [2, 4], life: [0.3, 0.6] })
+    world.sound('heavyHit', clamp(0.3 + dmg / 12, 0.3, 0.9), 0.8)
+  },
+  portal: ({ world, at }) => {
+    world.effects.burst(at, { count: 10, color: ['#38bdf8', '#ff8a00', '#ffffff'], shape: 'spark', speed: [80, 260], size: [1.5, 3.5], life: [0.2, 0.45] })
+    world.sound('zap', 0.5, 1.2)
+  },
+  slam: ({ world, at, dmg }) => {
+    world.effects.burst(at, { count: 12, color: SMOKE, shape: 'smoke', speed: [40, 180], size: [6, 12], life: [0.4, 0.9], endScale: 2 })
+    world.sound('heavyHit', clamp(0.4 + dmg / 15, 0.4, 1), 0.7)
+  },
+  knife: ({ world, at }) => {
+    world.effects.burst(at, { count: 6, color: BLOOD, speed: [60, 200], size: [2, 4], life: [0.25, 0.5], gravity: 100 })
+    world.effects.burst(at, { count: 3, color: ['#e5e7eb', '#ffffff'], shape: 'spark', speed: [100, 240], size: [1.5, 3], life: [0.12, 0.25] })
+    world.sound('shuriken', 0.6, 1.2)
+  },
+  echo: ({ world, at }) => {
+    world.effects.burst(at, { count: 8, color: ['#fda4af', '#fb7185', '#ffffff'], speed: [60, 200], size: [2, 4], life: [0.25, 0.5] })
+    world.sound('hit', 0.45, 1.4)
+  },
+  voodoo: ({ world, at }) => {
+    world.effects.burst(at, { count: 6, color: ['#7c3aed', '#a855f7', '#1f1f2e'], shape: 'smoke', speed: [20, 90], size: [5, 9], life: [0.4, 0.8], endScale: 1.8 })
+    world.effects.burst(at, { count: 5, color: BLOOD, speed: [40, 150], size: [2, 4], life: [0.25, 0.5], gravity: 100 })
+    world.sound('poison', 0.5, 0.7)
+  },
+  fishhook: ({ world, at }) => {
+    world.effects.burst(at, { count: 5, color: BLOOD, speed: [40, 150], size: [1.5, 3.5], life: [0.25, 0.5], gravity: 120 })
+    world.effects.burst(at, { count: 2, color: ['#e2e8f0', '#ffffff'], shape: 'spark', speed: [60, 160], size: [1.5, 2.5], life: [0.1, 0.25] })
+    world.sound('hit', 0.35, 1.5)
+  },
+  anchor: ({ world, at, dmg }) => {
     world.effects.burst(at, { count: 9, color: ['#fde68a', '#ffffff', '#fbbf24'], shape: 'spark', speed: [160, 420], size: [2, 4], life: [0.2, 0.5] })
     world.effects.burst(at, { count: 6, color: ['#9ca3af', '#6b7280'], shape: 'smoke', speed: [30, 120], size: [6, 11], life: [0.4, 0.9], endScale: 2 })
     world.effects.burst(at, { count: 8, color: BLOOD, speed: [60, 220], size: [2, 5], life: [0.3, 0.7], gravity: 120 })
@@ -277,7 +334,9 @@ const HIT_EFFECTS: Record<DamageKind, HitEffect> = {
 
 export function spawnHitEffects(world: World, target: Ball, dmg: number, opts: DamageOptions): void {
   const fx = world.effects
-  const textPos = { x: target.pos.x + 22, y: target.pos.y - target.radius - 12 }
+  // Numbers float upwards; against the top wall they'd leave the arena, so show them below the ball instead.
+  const above = target.pos.y - target.radius - 12
+  const textPos = { x: target.pos.x + 22, y: above >= TEXT_MIN_Y ? above : target.pos.y + target.radius + 28 }
   const red = opts.kind === 'poison' ? '#c03a3a' : '#ef4444'
   const size = opts.kind === 'poison' ? 22 : dmg >= 100 ? 48 : dmg >= 50 ? 40 : dmg >= 8 ? 32 : 26
   fx.text(`-${dmg}`, textPos, red, size)

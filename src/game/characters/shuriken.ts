@@ -1,4 +1,5 @@
-import { type Vec, len } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, distSq, len } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { CharacterDef } from './types'
 
@@ -90,7 +91,7 @@ export class ShurikenAbility extends Ability {
       else if (st.pos.y > s - r && st.vel.y > 0) st.vel.y = -st.vel.y
 
       const reach = e.radius + STAR_HIT_RADIUS
-      if (e.alive && this.world.combatActive && (st.pos.x - e.pos.x) ** 2 + (st.pos.y - e.pos.y) ** 2 < reach * reach) {
+      if (e.alive && this.world.combatActive && distSq(st.pos, e.pos) < reach * reach) {
         this.world.damage(e, STAR_DAMAGE, { kind: 'shuriken', source: this.owner, at: st.pos })
         continue
       }
@@ -126,12 +127,12 @@ export function drawShurikenStar(ctx: CanvasRenderingContext2D, x: number, y: nu
   ctx.beginPath()
   for (let i = 0; i < 4; i++) {
     const a = (i * Math.PI) / 2
-    const tip = { x: Math.cos(a) * r, y: Math.sin(a) * r }
-    const next = { x: Math.cos(a + Math.PI / 2) * r, y: Math.sin(a + Math.PI / 2) * r }
+    const tip = { x: dm.cos(a) * r, y: dm.sin(a) * r }
+    const next = { x: dm.cos(a + Math.PI / 2) * r, y: dm.sin(a + Math.PI / 2) * r }
     if (i === 0) ctx.moveTo(tip.x, tip.y)
     // Concave side curving in towards the centre.
     const mid = a + Math.PI / 4
-    ctx.quadraticCurveTo(Math.cos(mid) * r * 0.12, Math.sin(mid) * r * 0.12, next.x, next.y)
+    ctx.quadraticCurveTo(dm.cos(mid) * r * 0.12, dm.sin(mid) * r * 0.12, next.x, next.y)
   }
   ctx.closePath()
   const g = ctx.createLinearGradient(-r, -r, r, r)
@@ -165,15 +166,8 @@ export function drawShurikenPortrait(ctx: CanvasRenderingContext2D, cx: number, 
 
 export const shurikenDef: CharacterDef = {
   id: 'shuriken',
-  name: '手里剑',
   nameEn: 'SHURIKEN',
-  tagline: '飞镖满天飞',
-  rules: [
-    '定时沿自己前进的方向连续掷出手里剑',
-    `手里剑会在墙壁间无限反弹，命中敌人 -${STAR_DAMAGE} 后消失`,
-    `每轮投掷越来越多，最多一次 ${MAX_VOLLEY} 枚`,
-    `每轮之间间隔 ${VOLLEY_COOLDOWN} 秒`,
-  ],
+  ruleValues: { starDamage: STAR_DAMAGE, maxVolley: MAX_VOLLEY, volleyCooldown: VOLLEY_COOLDOWN },
   palette: { ball: '#31a7f9', text: '#ffffff', accent: '#3ca0f0' },
   mirrorPalette: { ball: '#1d4ed8', text: '#dbeafe', accent: '#3b82f6' },
   create: (w, b) => new ShurikenAbility(w, b),

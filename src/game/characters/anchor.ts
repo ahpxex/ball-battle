@@ -1,18 +1,19 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp, dot, len } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import type { World } from '../engine/World'
-import { drawChain, drawGrapplingHook } from '../render/draw'
+import { drawChain, drawAnchor } from '../render/draw'
 import type { CharacterDef } from './types'
 
-const HOOK_RADIUS = 18
-/** Drawing scale of the hook sprite; its eye ring sits 15 units behind the centre at scale 1. */
-const HOOK_SCALE = 1.45
-/** Resting chain length, ball centre to hook centre. */
+const HEAD_RADIUS = 18
+/** Drawing scale of the anchor sprite; its eye ring sits 15 units behind the centre at scale 1. */
+const HEAD_SCALE = 1.45
+/** Resting chain length, ball centre to anchor centre. */
 const ROPE_LENGTH = 95
 /** Chain length paid out during a cast. */
 const CAST_ROPE_LENGTH = 210
-const HOOK_MASS = 0.5
+const HEAD_MASS = 0.5
 /** Fraction of rope tension transferred back into the ball. */
 const TUG = 0.25
 const AIR_DRAG = 0.35
@@ -28,7 +29,7 @@ const REEL_SPEED = 420
 /** Pull applied to an enemy caught by a cast. */
 const YANK_SPEED = 260
 
-/** Idle flail: periodic sideways whip of the hook. */
+/** Idle flail: periodic sideways whip of the anchor. */
 const SWING_INTERVAL = 1.2
 const SWING_IMPULSE = 560
 
@@ -40,11 +41,11 @@ const HIT_COOLDOWN = 0.28
 const TRAIL_LENGTH = 12
 
 /**
- * 鱼钩 — drags a barbed hook on a chain. When the enemy comes close it casts
- * the hook out like a fishing line; a hooked enemy gets yanked back in.
- * Otherwise the hook swings like a flail. Damage scales with impact speed.
+ * 船锚 — drags a barbed anchor on a chain. When the enemy comes close it casts
+ * the anchor out; a snagged enemy gets yanked back in. Otherwise the anchor
+ * swings like a flail. Damage scales with impact speed.
  */
-export class HookAbility extends Ability {
+export class AnchorAbility extends Ability {
   private pos: Vec
   private vel: Vec = { x: 0, y: 0 }
   private ropeLength = ROPE_LENGTH
@@ -71,7 +72,7 @@ export class HookAbility extends Ability {
 
     this.updateLine(dt)
 
-    const k = Math.exp(-AIR_DRAG * dt)
+    const k = dm.exp(-AIR_DRAG * dt)
     this.vel.x *= k
     this.vel.y *= k
     this.pos.x += this.vel.x * dt
@@ -99,7 +100,7 @@ export class HookAbility extends Ability {
     if (!this.world.combatActive || this.owner.disarmed) return
     const o = this.owner
     const e = this.enemy
-    if (this.castCooldown <= 0 && e.alive && Math.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) < CAST_RANGE) {
+    if (this.castCooldown <= 0 && e.alive && dm.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) < CAST_RANGE) {
       this.cast(e)
       return
     }
@@ -112,10 +113,10 @@ export class HookAbility extends Ability {
     // Lead the target slightly.
     const aimX = target.pos.x + target.vel.x * 0.15 - o.pos.x
     const aimY = target.pos.y + target.vel.y * 0.15 - o.pos.y
-    const d = Math.hypot(aimX, aimY) || 1
+    const d = dm.hypot(aimX, aimY) || 1
     // Launch from the near side of the ball so the line pays out cleanly.
-    this.pos.x = o.pos.x + (aimX / d) * (o.radius + HOOK_RADIUS)
-    this.pos.y = o.pos.y + (aimY / d) * (o.radius + HOOK_RADIUS)
+    this.pos.x = o.pos.x + (aimX / d) * (o.radius + HEAD_RADIUS)
+    this.pos.y = o.pos.y + (aimY / d) * (o.radius + HEAD_RADIUS)
     this.vel.x = (aimX / d) * CAST_SPEED + o.vel.x * 0.5
     this.vel.y = (aimY / d) * CAST_SPEED + o.vel.y * 0.5
     this.ropeLength = CAST_ROPE_LENGTH
@@ -136,7 +137,7 @@ export class HookAbility extends Ability {
     const o = this.owner
     const dx = this.pos.x - o.pos.x
     const dy = this.pos.y - o.pos.y
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     // Tangent of the rope circle, oriented to sweep towards the enemy.
     let tx = -dy / d
     let ty = dx / d
@@ -151,7 +152,7 @@ export class HookAbility extends Ability {
 
   private collideWalls(): void {
     const s = this.world.size
-    const r = HOOK_RADIUS
+    const r = HEAD_RADIUS
     let impact = 0
     if (this.pos.x < r && this.vel.x < 0) {
       impact = -this.vel.x
@@ -179,10 +180,10 @@ export class HookAbility extends Ability {
     const o = this.owner
     const dx = this.pos.x - o.pos.x
     const dy = this.pos.y - o.pos.y
-    const d = Math.hypot(dx, dy) || 1e-6
+    const d = dm.hypot(dx, dy) || 1e-6
     const nx = dx / d
     const ny = dy / d
-    const minD = o.radius + HOOK_RADIUS
+    const minD = o.radius + HEAD_RADIUS
     if (d > this.ropeLength) {
       this.pos.x = o.pos.x + nx * this.ropeLength
       this.pos.y = o.pos.y + ny * this.ropeLength
@@ -192,12 +193,12 @@ export class HookAbility extends Ability {
         this.vel.x -= nx * vr
         this.vel.y -= ny * vr
         if (o.movable) {
-          o.vel.x += nx * vr * HOOK_MASS * TUG
-          o.vel.y += ny * vr * HOOK_MASS * TUG
+          o.vel.x += nx * vr * HEAD_MASS * TUG
+          o.vel.y += ny * vr * HEAD_MASS * TUG
         }
       }
     } else if (d < minD) {
-      // The hook rides around the ball rather than through it.
+      // The anchor rides around the ball rather than through it.
       this.pos.x = o.pos.x + nx * minD
       this.pos.y = o.pos.y + ny * minD
       const vr = (this.vel.x - o.vel.x) * nx + (this.vel.y - o.vel.y) * ny
@@ -213,18 +214,18 @@ export class HookAbility extends Ability {
     if (!e.alive) return
     const dx = e.pos.x - this.pos.x
     const dy = e.pos.y - this.pos.y
-    const minD = e.radius + HOOK_RADIUS
+    const minD = e.radius + HEAD_RADIUS
     const d2 = dx * dx + dy * dy
     if (d2 >= minD * minD) return
     const d = Math.sqrt(d2) || 1e-6
     const n = { x: dx / d, y: dy / d }
-    // Separate the hook from the enemy.
+    // Separate the anchor from the enemy.
     this.pos.x = e.pos.x - n.x * minD
     this.pos.y = e.pos.y - n.y * minD
     const rel = { x: this.vel.x - e.vel.x, y: this.vel.y - e.vel.y }
     const impact = dot(rel, n)
     if (impact <= 0) return
-    // Bounce the hook back off the target.
+    // Bounce the anchor back off the target.
     this.vel.x -= n.x * impact * 1.5
     this.vel.y -= n.y * impact * 1.5
     if (impact < MIN_IMPACT || this.hitCooldown > 0) return
@@ -233,10 +234,10 @@ export class HookAbility extends Ability {
     const o = this.owner
     let knock: Vec
     if (this.casting) {
-      // Hooked: reel the catch towards the ball.
+      // Snagged: reel the catch towards the ball.
       const tx = o.pos.x - e.pos.x
       const ty = o.pos.y - e.pos.y
-      const td = Math.hypot(tx, ty) || 1
+      const td = dm.hypot(tx, ty) || 1
       knock = { x: (tx / td) * YANK_SPEED, y: (ty / td) * YANK_SPEED }
       this.casting = false
     } else {
@@ -245,23 +246,23 @@ export class HookAbility extends Ability {
     }
     const dmg = clamp(Math.round(impact / SPEED_PER_DAMAGE), 1, MAX_DAMAGE)
     this.world.damage(e, dmg, {
-      kind: 'hook',
+      kind: 'anchor',
       source: o,
-      at: { x: this.pos.x + n.x * HOOK_RADIUS, y: this.pos.y + n.y * HOOK_RADIUS },
+      at: { x: this.pos.x + n.x * HEAD_RADIUS, y: this.pos.y + n.y * HEAD_RADIUS },
       knock,
       shake: dmg >= 4 ? 5 : 2,
     })
   }
 
-  private get hookAngle(): number {
-    return Math.atan2(this.pos.y - this.owner.pos.y, this.pos.x - this.owner.pos.x)
+  private get headAngle(): number {
+    return dm.atan2(this.pos.y - this.owner.pos.y, this.pos.x - this.owner.pos.x)
   }
 
   override renderUnderBall(ctx: CanvasRenderingContext2D): void {
     const fade = this.presence
     if (fade <= 0) return
     const o = this.owner
-    const angle = this.hookAngle
+    const angle = this.headAngle
     const speed = len(this.vel)
     ctx.save()
     ctx.globalAlpha = fade
@@ -276,9 +277,9 @@ export class HookAbility extends Ability {
       ctx.stroke()
       ctx.setLineDash([])
     }
-    const ring = { x: this.pos.x - Math.cos(angle) * 15 * HOOK_SCALE, y: this.pos.y - Math.sin(angle) * 15 * HOOK_SCALE }
-    const start = { x: o.pos.x + Math.cos(angle) * o.radius, y: o.pos.y + Math.sin(angle) * o.radius }
-    const ropeLen = Math.hypot(this.pos.x - o.pos.x, this.pos.y - o.pos.y)
+    const ring = { x: this.pos.x - dm.cos(angle) * 15 * HEAD_SCALE, y: this.pos.y - dm.sin(angle) * 15 * HEAD_SCALE }
+    const start = { x: o.pos.x + dm.cos(angle) * o.radius, y: o.pos.y + dm.sin(angle) * o.radius }
+    const ropeLen = dm.hypot(this.pos.x - o.pos.x, this.pos.y - o.pos.y)
     drawChain(ctx, start, ring, clamp((this.ropeLength - ropeLen) * 0.3, 0, 18))
     ctx.restore()
   }
@@ -288,40 +289,29 @@ export class HookAbility extends Ability {
     if (fade <= 0) return
     ctx.save()
     ctx.globalAlpha = fade
-    drawGrapplingHook(ctx, this.pos.x, this.pos.y, this.hookAngle, HOOK_SCALE)
+    drawAnchor(ctx, this.pos.x, this.pos.y, this.headAngle, HEAD_SCALE)
     ctx.restore()
   }
 }
 
-export function drawHookPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
+export function drawAnchorPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
   const angle = -0.5
-  const hx = cx + Math.cos(angle) * r * 2.1
-  const hy = cy + Math.sin(angle) * r * 2.1
-  drawChain(
-    ctx,
-    { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r },
-    { x: hx - Math.cos(angle) * 15 * (r / 34), y: hy - Math.sin(angle) * 15 * (r / 34) },
-  )
+  const hx = cx + dm.cos(angle) * r * 2.1
+  const hy = cy + dm.sin(angle) * r * 2.1
+  drawChain(ctx, { x: cx + dm.cos(angle) * r, y: cy + dm.sin(angle) * r }, { x: hx - dm.cos(angle) * 15 * (r / 34), y: hy - dm.sin(angle) * 15 * (r / 34) })
   ctx.fillStyle = color
   ctx.beginPath()
   ctx.arc(cx, cy, r, 0, Math.PI * 2)
   ctx.fill()
-  drawGrapplingHook(ctx, hx, hy, angle, r / 34)
+  drawAnchor(ctx, hx, hy, angle, r / 34)
 }
 
-export const hookDef: CharacterDef = {
-  id: 'hook',
-  name: '鱼钩',
-  nameEn: 'HOOK',
-  tagline: '链子一甩，钩到就疼',
-  rules: [
-    '用铁链拖着一枚倒刺钩，平时像流星锤一样甩动',
-    `敌人靠近时抛出鱼钩（冷却 ${CAST_COOLDOWN} 秒），钩中后把敌人往回拽`,
-    `伤害取决于撞击速度：1 ~ ${MAX_DAMAGE} 点`,
-    '钩子会在墙壁上反弹',
-  ],
+export const anchorDef: CharacterDef = {
+  id: 'anchor',
+  nameEn: 'ANCHOR',
+  ruleValues: { castCooldown: CAST_COOLDOWN, maxDamage: MAX_DAMAGE },
   palette: { ball: '#f5b326', text: '#ffffff', accent: '#f5b326' },
   mirrorPalette: { ball: '#b45309', text: '#fef3c7', accent: '#d97706' },
-  create: (w, b) => new HookAbility(w, b),
-  drawPortrait: drawHookPortrait,
+  create: (w, b) => new AnchorAbility(w, b),
+  drawPortrait: drawAnchorPortrait,
 }

@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type OrientedBox, Polyline, circleBoxContact } from '../core/geometry'
 import { type Vec, copy, dist, normalize, sub } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -121,7 +122,7 @@ export class ConductorAbility extends Ability {
         engine,
         box: {
           center: { x: (front.x + back.x) / 2, y: (front.y + back.y) / 2 },
-          angle: Math.atan2(front.y - back.y, front.x - back.x),
+          angle: dm.atan2(front.y - back.y, front.x - back.x),
           halfLength: half,
           halfWidth: CAR_HALF_WIDTH,
         },
@@ -146,8 +147,8 @@ export class ConductorAbility extends Ability {
       const contact = circleBoxContact(enemy.pos, enemy.radius, car.box)
       if (!contact) continue
       let away = normalize(sub(enemy.pos, contact))
-      if (away.x === 0 && away.y === 0) away = { x: -Math.sin(car.box.angle), y: Math.cos(car.box.angle) }
-      const fwd = { x: Math.cos(car.box.angle), y: Math.sin(car.box.angle) }
+      if (away.x === 0 && away.y === 0) away = { x: -dm.sin(car.box.angle), y: dm.cos(car.box.angle) }
+      const fwd = { x: dm.cos(car.box.angle), y: dm.sin(car.box.angle) }
       this.world.damage(enemy, car.engine ? ENGINE_DAMAGE : WAGON_DAMAGE, {
         kind: 'train',
         source: this.owner,
@@ -197,15 +198,8 @@ export function drawConductorPortrait(ctx: CanvasRenderingContext2D, cx: number,
 
 export const conductorDef: CharacterDef = {
   id: 'conductor',
-  name: '列车长',
   nameEn: 'CONDUCTOR',
-  tagline: '铁轨铺到哪，火车开到哪',
-  rules: [
-    '从撞墙点开始，沿自己的轨迹铺设铁轨',
-    `再撞墙 ${TRACK_BOUNCES} 次后铁轨完工，火车驶来，同时开始铺下一条`,
-    `车头 -${ENGINE_DAMAGE}，车厢 -${WAGON_DAMAGE}，每班车最多命中 ${MAX_HITS_PER_RUN} 次`,
-    `首班车 ${BASE_WAGONS} 节车厢，之后每班多 ${WAGONS_PER_RUN} 节，越来越难躲`,
-  ],
+  ruleValues: { trackBounces: TRACK_BOUNCES, engineDamage: ENGINE_DAMAGE, wagonDamage: WAGON_DAMAGE, maxHitsPerRun: MAX_HITS_PER_RUN, baseWagons: BASE_WAGONS, wagonsPerRun: WAGONS_PER_RUN },
   palette: { ball: '#8b5cf6', text: '#ffffff', accent: '#8b5cf6' },
   mirrorPalette: { ball: '#4338ca', text: '#e0e7ff', accent: '#6366f1' },
   create: (w, b) => new ConductorAbility(w, b),

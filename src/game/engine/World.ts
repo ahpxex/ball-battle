@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { Rng } from '../core/rng'
 import { type Vec, clamp, damp, fromAngle, len } from '../core/vec'
 import type { Ability, AbilityFactory } from './Ability'
@@ -98,7 +99,7 @@ export class World {
     }
     const b0 = makeBall(0, opts.fighters[0])
     const b1 = makeBall(1, opts.fighters[1])
-    for (const b of [b0, b1]) b.vel = fromAngle(Math.atan2(b.vel.y, b.vel.x), b.baseSpeed)
+    for (const b of [b0, b1]) b.vel = fromAngle(dm.atan2(b.vel.y, b.vel.x), b.baseSpeed)
     this.balls = [b0, b1]
     this.abilities = [opts.fighters[0].createAbility(this, b0), opts.fighters[1].createAbility(this, b1)]
   }

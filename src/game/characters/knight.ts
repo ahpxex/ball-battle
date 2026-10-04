@@ -1,5 +1,6 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
-import { type Vec, angleDiff, clamp, damp, lerpAngle } from '../core/vec'
+import { type Vec, angleDiff, clamp, damp, distSq, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import type { BallContact } from '../engine/types'
@@ -87,14 +88,14 @@ export class KnightAbility extends Ability {
     super(world, owner)
     this.modeLeft = world.rng.range(MODE_MIN, MODE_MAX)
     const e = world.opponentOf(owner)
-    this.bladeAngle = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
+    this.bladeAngle = dm.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
     this.fanAngle = this.bladeAngle
   }
 
   private get enemyAngle(): number {
     const o = this.owner.pos
     const e = this.enemy.pos
-    return Math.atan2(e.y - o.y, e.x - o.x)
+    return dm.atan2(e.y - o.y, e.x - o.x)
   }
 
   override update(dt: number): void {
@@ -145,19 +146,19 @@ export class KnightAbility extends Ability {
     this.swingPhase += dt / SWING_PERIOD
     // Whoosh as the blade sweeps through the enemy direction (fastest point).
     if (Math.floor(this.swingPhase * 2) !== before) this.world.sound('whoosh', 0.18, 1.3)
-    this.bladeAngle = this.enemyAngle + SWING_AMPLITUDE * Math.sin(2 * Math.PI * this.swingPhase)
+    this.bladeAngle = this.enemyAngle + SWING_AMPLITUDE * dm.sin(2 * Math.PI * this.swingPhase)
     if (!this.world.headless) this.trail.push({ angle: this.bladeAngle, t: this.world.time })
 
     const e = this.enemy
     if (this.modeTime < SWORD_READY_DELAY || this.cooldown > 0 || o.disarmed || !e.alive) return
     const R = o.radius
-    const dx = Math.cos(this.bladeAngle)
-    const dy = Math.sin(this.bladeAngle)
+    const dx = dm.cos(this.bladeAngle)
+    const dy = dm.sin(this.bladeAngle)
     const a = { x: o.pos.x + dx * HIT_START * R, y: o.pos.y + dy * HIT_START * R }
     const b = { x: o.pos.x + dx * BLADE_TIP * R, y: o.pos.y + dy * BLADE_TIP * R }
     const at = closestPointOnSegment(e.pos, a, b)
     const reach = e.radius + HIT_SLACK * R
-    if ((at.x - e.pos.x) ** 2 + (at.y - e.pos.y) ** 2 > reach * reach) return
+    if (distSq(at, e.pos) > reach * reach) return
     this.cooldown = SWORD_COOLDOWN
     const away = this.awayFromOwner(e)
     this.world.damage(e, SWORD_DAMAGE, { kind: 'sword', source: o, at, knock: { x: away.x * KNOCK, y: away.y * KNOCK }, shake: 6 })
@@ -173,11 +174,11 @@ export class KnightAbility extends Ability {
     if (!e.alive || !e.movable) return
     const dx = e.pos.x - o.pos.x
     const dy = e.pos.y - o.pos.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     if (d < 1e-6 || d >= FAN_INNER * o.radius + e.radius) return
     // The enemy's body overlaps the fan's angular span.
-    const halfSpan = FAN_HALF_ARC + Math.asin(Math.min(1, e.radius / d))
-    if (Math.abs(angleDiff(this.fanAngle, Math.atan2(dy, dx))) > halfSpan) return
+    const halfSpan = FAN_HALF_ARC + dm.asin(Math.min(1, e.radius / d))
+    if (Math.abs(angleDiff(this.fanAngle, dm.atan2(dy, dx))) > halfSpan) return
     const n = { x: dx / d, y: dy / d }
     // Reflect the inward part of the enemy's motion relative to the knight.
     const vn = (e.vel.x - o.vel.x) * n.x + (e.vel.y - o.vel.y) * n.y
@@ -203,9 +204,9 @@ export class KnightAbility extends Ability {
   private awayFromOwner(e: Ball): Vec {
     const dx = e.pos.x - this.owner.pos.x
     const dy = e.pos.y - this.owner.pos.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     if (d > 1e-6) return { x: dx / d, y: dy / d }
-    return { x: Math.cos(this.bladeAngle), y: Math.sin(this.bladeAngle) }
+    return { x: dm.cos(this.bladeAngle), y: dm.sin(this.bladeAngle) }
   }
 
   private pruneTrail(): void {
@@ -237,8 +238,8 @@ export class KnightAbility extends Ability {
       drawSword(ctx, o.pos.x, o.pos.y, this.bladeAngle, o.radius * (0.6 + 0.4 * this.appear))
     } else {
       const at = SHIELD_ICON_AT * o.radius
-      const x = o.pos.x + Math.cos(this.fanAngle) * at
-      const y = o.pos.y + Math.sin(this.fanAngle) * at
+      const x = o.pos.x + dm.cos(this.fanAngle) * at
+      const y = o.pos.y + dm.sin(this.fanAngle) * at
       drawHeaterShield(ctx, x, y, SHIELD_ICON_HEIGHT * o.radius * (0.5 + 0.5 * this.appear))
     }
     ctx.restore()
@@ -446,15 +447,8 @@ export function drawKnightPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const knightDef: CharacterDef = {
   id: 'knight',
-  name: '骑士',
   nameEn: 'KNIGHT BALL',
-  tagline: '攻守兼备',
-  rules: [
-    `剑与盾轮流切换：持剑 ${MODE_MIN}~${MODE_MAX} 秒、举盾 ${SHIELD_MIN}~${SHIELD_MAX} 秒，开局先拔剑`,
-    `持剑：长剑朝敌人方向左右各 ${SWING_AMPLITUDE_DEG}° 来回挥砍，每 ${SWING_PERIOD} 秒一个来回`,
-    `剑刃砍中敌人 -${SWORD_DAMAGE} 并把它击飞，同一目标每 ${SWORD_COOLDOWN} 秒最多一次`,
-    `举盾：完全免疫伤害，${FAN_ARC_DEG}° 的盾扇朝向敌人，碰到就把它弹开`,
-  ],
+  ruleValues: { modeMin: MODE_MIN, modeMax: MODE_MAX, shieldMin: SHIELD_MIN, shieldMax: SHIELD_MAX, swingAmplitudeDeg: SWING_AMPLITUDE_DEG, swingPeriod: SWING_PERIOD, swordDamage: SWORD_DAMAGE, swordCooldown: SWORD_COOLDOWN, fanArcDeg: FAN_ARC_DEG },
   palette: { ball: '#787a85', text: '#ffffff', accent: '#9a9ca8' },
   mirrorPalette: { ball: '#3f4150', text: '#e5e7eb', accent: '#b4b7c4' },
   create: (w, b) => new KnightAbility(w, b),

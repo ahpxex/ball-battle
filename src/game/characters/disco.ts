@@ -1,5 +1,6 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
-import { type Vec, clamp } from '../core/vec'
+import { type Vec, clamp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -120,7 +121,7 @@ export class DiscoAbility extends Ability {
     const offset = this.world.rng.range(0, (Math.PI * 2) / BAR_COUNT)
     for (let k = 0; k < BAR_COUNT; k++) {
       const a = offset + (k * Math.PI * 2) / BAR_COUNT
-      const dir = { x: Math.cos(a), y: Math.sin(a) }
+      const dir = { x: dm.cos(a), y: dm.sin(a) }
       // Bars slide out from under the ball.
       this.bars.push({ tip: { x: o.pos.x + dir.x * o.radius, y: o.pos.y + dir.y * o.radius }, dir, hit: false, hue: k / BAR_COUNT })
     }
@@ -146,7 +147,7 @@ export class DiscoAbility extends Ability {
       if (b.hit || !live) continue
       const tail = { x: b.tip.x - b.dir.x * BAR_LENGTH, y: b.tip.y - b.dir.y * BAR_LENGTH }
       const p = closestPointOnSegment(e.pos, tail, b.tip)
-      if ((p.x - e.pos.x) ** 2 + (p.y - e.pos.y) ** 2 >= reach * reach) continue
+      if (distSq(p, e.pos) >= reach * reach) continue
       b.hit = true
       const dealt = this.world.damage(e, BAR_DAMAGE, { kind: 'disco', source: this.owner, at: p })
       if (dealt > 0) this.applyDot()
@@ -242,8 +243,8 @@ export class DiscoAbility extends Ability {
       const sp = 50 + fx.random() * 70
       const life = 0.8 + fx.random() * 0.5
       this.notes.push({
-        pos: { x: at.x + Math.cos(a) * this.owner.radius * 0.8, y: at.y + Math.sin(a) * this.owner.radius * 0.8 },
-        vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp - 40 },
+        pos: { x: at.x + dm.cos(a) * this.owner.radius * 0.8, y: at.y + dm.sin(a) * this.owner.radius * 0.8 },
+        vel: { x: dm.cos(a) * sp, y: dm.sin(a) * sp - 40 },
         life,
         maxLife: life,
         color: RAINBOW[Math.floor(fx.random() * RAINBOW.length)],
@@ -259,8 +260,8 @@ export class DiscoAbility extends Ability {
       n.life -= dt
       n.pos.x += n.vel.x * dt
       n.pos.y += n.vel.y * dt
-      n.vel.x *= Math.exp(-1.5 * dt)
-      n.vel.y = n.vel.y * Math.exp(-1.5 * dt) - 30 * dt
+      n.vel.x *= dm.exp(-1.5 * dt)
+      n.vel.y = n.vel.y * dm.exp(-1.5 * dt) - 30 * dt
     }
     this.notes = this.notes.filter((n) => n.life > 0)
   }
@@ -283,7 +284,7 @@ export class DiscoAbility extends Ability {
       ctx.save()
       ctx.globalAlpha = fade
       const t = this.world.time
-      for (const b of this.bars) drawBar(ctx, b.tip, Math.atan2(b.dir.y, b.dir.x), BAR_LENGTH, BAR_THICKNESS, rainbowAt(b.hue + t * 1.6))
+      for (const b of this.bars) drawBar(ctx, b.tip, dm.atan2(b.dir.y, b.dir.x), BAR_LENGTH, BAR_THICKNESS, rainbowAt(b.hue + t * 1.6))
       ctx.restore()
     }
   }
@@ -292,7 +293,7 @@ export class DiscoAbility extends Ability {
     const u = this.telegraph
     if (u <= 0) return
     const o = this.owner
-    const pulse = 0.85 + 0.15 * Math.sin(this.world.time * 30)
+    const pulse = 0.85 + 0.15 * dm.sin(this.world.time * 30)
     const outer = o.radius * (1.6 + 0.35 * u)
     const g = ctx.createRadialGradient(o.pos.x, o.pos.y, o.radius * 0.8, o.pos.x, o.pos.y, outer)
     g.addColorStop(0, `rgba(${HALO_COLOR},${0.7 * u * pulse})`)
@@ -320,9 +321,9 @@ export class DiscoAbility extends Ability {
       const t = this.world.time
       for (let i = 0; i < 4; i++) {
         const a = t * 3 + (i * Math.PI) / 2
-        const rr = e.radius * (1.05 + 0.1 * Math.sin(t * 7 + i))
-        ctx.globalAlpha = fade * (0.55 + 0.45 * Math.sin(t * 11 + i * 1.7))
-        drawGlint(ctx, e.pos.x + Math.cos(a) * rr, e.pos.y + Math.sin(a) * rr, 4.5, rainbowAt(i / 4 + t))
+        const rr = e.radius * (1.05 + 0.1 * dm.sin(t * 7 + i))
+        ctx.globalAlpha = fade * (0.55 + 0.45 * dm.sin(t * 11 + i * 1.7))
+        drawGlint(ctx, e.pos.x + dm.cos(a) * rr, e.pos.y + dm.sin(a) * rr, 4.5, rainbowAt(i / 4 + t))
       }
     }
     for (const n of this.notes) {
@@ -467,8 +468,8 @@ export function drawMirrorBall(ctx: CanvasRenderingContext2D, cx: number, cy: nu
   // Parallels.
   for (let k = -3; k <= 3; k++) {
     const phi = (k * Math.PI) / 8
-    const y = cy + r * Math.sin(phi)
-    const hw = r * Math.cos(phi)
+    const y = cy + r * dm.sin(phi)
+    const hw = r * dm.cos(phi)
     ctx.moveTo(cx - hw, y)
     ctx.lineTo(cx + hw, y)
   }
@@ -479,14 +480,14 @@ export function drawMirrorBall(ctx: CanvasRenderingContext2D, cx: number, cy: nu
   ctx.beginPath()
   for (let k = 0; k < meridians; k++) {
     const lon = spin + (k * Math.PI * 2) / meridians
-    if (Math.cos(lon) <= 0) continue
-    const rx = r * Math.abs(Math.sin(lon))
+    if (dm.cos(lon) <= 0) continue
+    const rx = r * Math.abs(dm.sin(lon))
     if (rx < 0.5) {
       ctx.moveTo(cx, cy - r)
       ctx.lineTo(cx, cy + r)
       continue
     }
-    const right = Math.sin(lon) > 0
+    const right = dm.sin(lon) > 0
     ctx.moveTo(cx, cy - r)
     ctx.ellipse(cx, cy, rx, r, 0, -Math.PI / 2, Math.PI / 2, !right)
   }
@@ -501,7 +502,7 @@ export function drawMirrorBall(ctx: CanvasRenderingContext2D, cx: number, cy: nu
     [-0.1, 0.6, 5.6],
   ]
   for (const [dx, dy, ph] of spots) {
-    const tw = Math.sin(time * 4.2 + ph)
+    const tw = dm.sin(time * 4.2 + ph)
     if (tw <= 0.1) continue
     ctx.globalAlpha = tw
     drawGlint(ctx, cx + dx * r, cy + dy * r, r * 0.17 * (0.6 + 0.4 * tw), '#ffffff')
@@ -553,7 +554,7 @@ export function drawDiscoPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   const angles = [-2.6, -1.75, -0.55, 0.35, 1.3, 2.25]
   for (const [i, a] of angles.entries()) {
     const d = r * (1.55 + 0.35 * (i % 2))
-    drawBar(ctx, { x: cx + Math.cos(a) * (d + r * 0.6), y: cy + Math.sin(a) * (d + r * 0.6) }, a, r * 1.15, r * 0.3, RAINBOW[i % RAINBOW.length])
+    drawBar(ctx, { x: cx + dm.cos(a) * (d + r * 0.6), y: cy + dm.sin(a) * (d + r * 0.6) }, a, r * 1.15, r * 0.3, RAINBOW[i % RAINBOW.length])
   }
   ctx.fillStyle = color
   ctx.beginPath()
@@ -566,15 +567,8 @@ export function drawDiscoPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const discoDef: CharacterDef = {
   id: 'disco',
-  name: '迪斯科',
   nameEn: 'DISCO BALL',
-  tagline: '全场一起蹦迪',
-  rules: [
-    `每 ${BURST_INTERVAL} 秒向四周射出 ${BAR_COUNT} 道彩虹光棒，命中 -${BAR_DAMAGE}`,
-    `被光棒或舞池打中会持续掉血：每 ${DOT_INTERVAL} 秒 -${DOT_DAMAGE}，共 ${DOT_TICKS} 次（重复命中只刷新不叠加）`,
-    `每 ${FLOOR_INTERVAL} 秒全场变成 ${FLOOR_GRID}×${FLOOR_GRID} 数字舞池，格子上随机写着 ${FLOOR_MIN}～${FLOOR_MAX}`,
-    '敌人每踩进一个格子就扣格子上的数字，跨在几格之间会同时触发，自己不受影响',
-  ],
+  ruleValues: { burstInterval: BURST_INTERVAL, barCount: BAR_COUNT, barDamage: BAR_DAMAGE, dotInterval: DOT_INTERVAL, dotDamage: DOT_DAMAGE, dotTicks: DOT_TICKS, floorInterval: FLOOR_INTERVAL, floorGrid: FLOOR_GRID, floorMin: FLOOR_MIN, floorMax: FLOOR_MAX },
   palette: { ball: '#2a8fb0', text: '#ffffff', accent: '#90e0e8' },
   mirrorPalette: { ball: '#6d4bb0', text: '#f3e8ff', accent: '#c4b5fd' },
   create: (w, b) => new DiscoAbility(w, b),

@@ -182,15 +182,8 @@ export function drawWdcPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: n
 
 export const wdcDef: CharacterDef = {
   id: 'wdc',
-  name: 'WDC',
   nameEn: 'WDC',
-  tagline: '九宫格抽数字',
-  rules: [
-    `每 ${CYCLE_INTERVAL} 秒在整个场地铺开一张 3×3 数字九宫格，持续 ${GRID_DURATION} 秒`,
-    `格子里大多是 ${SMALL_MIN}–${SMALL_MAX} 的小数字，但总有 ${BIG_CELLS} 格藏着 ${BIG_MIN}–${BIG_MAX} 的大数字`,
-    `九宫格期间打击 ${STRIKES} 次，每次选中两球连线中点所在的格子`,
-    '敌人受到该格数字的伤害，不管敌人站在哪里',
-  ],
+  ruleValues: { cycleInterval: CYCLE_INTERVAL, gridDuration: GRID_DURATION, smallMin: SMALL_MIN, smallMax: SMALL_MAX, bigCells: BIG_CELLS, bigMin: BIG_MIN, bigMax: BIG_MAX, strikes: STRIKES },
   palette: { ball: '#0048f8', text: '#ffffff', accent: '#3b6bff' },
   mirrorPalette: { ball: '#1e3a8a', text: '#dbeafe', accent: '#60a5fa' },
   create: (w, b) => new WdcAbility(w, b),

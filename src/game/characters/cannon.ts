@@ -1,4 +1,5 @@
-import { type Vec, angleDiff, clamp, damp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, angleDiff, clamp, damp, distSq, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -49,7 +50,7 @@ export class CannonAbility extends Ability {
 
   constructor(world: World, owner: Ball) {
     super(world, owner)
-    this.angle = Math.atan2(owner.vel.y, owner.vel.x)
+    this.angle = dm.atan2(owner.vel.y, owner.vel.x)
   }
 
   override update(dt: number): void {
@@ -73,7 +74,7 @@ export class CannonAbility extends Ability {
     if (armed && this.timer <= AIM_TIME && e.alive) {
       target = this.leadAngle()
     } else if (o.vel.x !== 0 || o.vel.y !== 0) {
-      target = Math.atan2(o.vel.y, o.vel.x)
+      target = dm.atan2(o.vel.y, o.vel.x)
     }
     this.angle += angleDiff(this.angle, target) * damp(TURN_RATE, dt)
   }
@@ -84,10 +85,10 @@ export class CannonAbility extends Ability {
     const e = this.enemy
     let p = e.pos
     for (let i = 0; i < 2; i++) {
-      const t = Math.max(0, Math.hypot(p.x - o.x, p.y - o.y) - MUZZLE_DISTANCE) / SHELL_SPEED
+      const t = Math.max(0, dm.hypot(p.x - o.x, p.y - o.y) - MUZZLE_DISTANCE) / SHELL_SPEED
       p = predictPosition(e, t, this.world.size)
     }
-    return Math.atan2(p.y - o.y, p.x - o.x)
+    return dm.atan2(p.y - o.y, p.x - o.x)
   }
 
   /** Linear ramp from COOLDOWN_START to COOLDOWN_END over the first COOLDOWN_RAMP seconds, plus jitter. */
@@ -99,8 +100,8 @@ export class CannonAbility extends Ability {
 
   private fire(): void {
     const o = this.owner.pos
-    const dx = Math.cos(this.angle)
-    const dy = Math.sin(this.angle)
+    const dx = dm.cos(this.angle)
+    const dy = dm.sin(this.angle)
     const muzzle = { x: o.x + dx * MUZZLE_DISTANCE, y: o.y + dy * MUZZLE_DISTANCE }
     this.shells.push({ pos: muzzle, vel: { x: dx * SHELL_SPEED, y: dy * SHELL_SPEED } })
     this.sinceShot = 0
@@ -120,7 +121,7 @@ export class CannonAbility extends Ability {
       sh.pos.x += sh.vel.x * dt
       sh.pos.y += sh.vel.y * dt
       const reach = e.radius + SHELL_RADIUS
-      if (e.alive && this.world.combatActive && (sh.pos.x - e.pos.x) ** 2 + (sh.pos.y - e.pos.y) ** 2 < reach * reach) {
+      if (e.alive && this.world.combatActive && distSq(sh.pos, e.pos) < reach * reach) {
         this.world.damage(e, SHELL_DAMAGE, { kind: 'shell', source: this.owner, at: sh.pos, shake: 5 })
         continue
       }
@@ -131,7 +132,7 @@ export class CannonAbility extends Ability {
       }
       // Sparks shed along the flight path.
       if (fx.random() < 0.45) {
-        const a = Math.atan2(-sh.vel.y, -sh.vel.x)
+        const a = dm.atan2(-sh.vel.y, -sh.vel.x)
         fx.burst(p, { count: 1, color: ['#fde68a', '#fb923c', '#fbbf24'], shape: 'spark', direction: a, spread: 0.5, speed: [40, 120], size: [1.2, 2.4], life: [0.1, 0.25], front: false })
       }
       kept.push(sh)
@@ -142,7 +143,7 @@ export class CannonAbility extends Ability {
   override renderUnderBall(ctx: CanvasRenderingContext2D): void {
     const o = this.owner.pos
     // Instant kick back, easing out over RECOIL_TIME.
-    const recoil = this.sinceShot < RECOIL_TIME ? (1 - this.sinceShot / RECOIL_TIME) ** 2 : 0
+    const recoil = this.sinceShot < RECOIL_TIME ? sq(1 - this.sinceShot / RECOIL_TIME) : 0
     drawCannon(ctx, o.x, o.y, this.angle, this.owner.radius, recoil)
   }
 
@@ -155,11 +156,11 @@ export class CannonAbility extends Ability {
     if (this.owner.alive && this.sinceShot < 0.09) {
       const o = this.owner.pos
       const u = 1 - this.sinceShot / 0.09
-      const mx = o.x + Math.cos(this.angle) * MUZZLE_DISTANCE
-      const my = o.y + Math.sin(this.angle) * MUZZLE_DISTANCE
+      const mx = o.x + dm.cos(this.angle) * MUZZLE_DISTANCE
+      const my = o.y + dm.sin(this.angle) * MUZZLE_DISTANCE
       drawSparkBurst(ctx, mx, my, this.angle, BALL_RADIUS * (0.6 + 0.5 * u), u)
     }
-    for (const sh of this.shells) drawShell(ctx, sh.pos.x, sh.pos.y, Math.atan2(sh.vel.y, sh.vel.x), SHELL_RADIUS)
+    for (const sh of this.shells) drawShell(ctx, sh.pos.x, sh.pos.y, dm.atan2(sh.vel.y, sh.vel.x), SHELL_RADIUS)
     ctx.restore()
   }
 }
@@ -177,8 +178,8 @@ export function drawCannon(ctx: CanvasRenderingContext2D, cx: number, cy: number
   // Wooden wheel blocks at ±100° from the barrel, long side parallel to it.
   for (const side of [-1, 1]) {
     const a = side * ((100 * Math.PI) / 180)
-    const wx = Math.cos(a) * r * 1.12
-    const wy = Math.sin(a) * r * 1.12
+    const wx = dm.cos(a) * r * 1.12
+    const wy = dm.sin(a) * r * 1.12
     ctx.fillStyle = '#aa5a2e'
     ctx.strokeStyle = '#5c2c12'
     ctx.lineWidth = Math.max(1, r * 0.05)
@@ -255,8 +256,8 @@ export function drawCannon(ctx: CanvasRenderingContext2D, cx: number, cy: number
 export function drawShell(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, r: number): void {
   ctx.save()
   // Tail.
-  const tx = x - Math.cos(angle) * r * 4
-  const ty = y - Math.sin(angle) * r * 4
+  const tx = x - dm.cos(angle) * r * 4
+  const ty = y - dm.sin(angle) * r * 4
   const tail = ctx.createLinearGradient(x, y, tx, ty)
   tail.addColorStop(0, 'rgba(251,146,60,0.7)')
   tail.addColorStop(1, 'rgba(251,146,60,0)')
@@ -299,10 +300,10 @@ function drawSparkBurst(ctx: CanvasRenderingContext2D, x: number, y: number, ang
   for (let i = 0; i < rays * 2; i++) {
     const a = (i / (rays * 2)) * Math.PI * 2
     // Rays forward of the muzzle are longer.
-    const fwd = 0.55 + 0.45 * Math.max(0, Math.cos(a))
+    const fwd = 0.55 + 0.45 * Math.max(0, dm.cos(a))
     const rr = i % 2 === 0 ? size * fwd : size * 0.32
-    const px = Math.cos(a) * rr
-    const py = Math.sin(a) * rr
+    const px = dm.cos(a) * rr
+    const py = dm.sin(a) * rr
     if (i === 0) ctx.moveTo(px, py)
     else ctx.lineTo(px, py)
   }
@@ -326,22 +327,15 @@ export function drawCannonPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
   ctx.beginPath()
   ctx.arc(bx, by, br, 0, Math.PI * 2)
   ctx.fill()
-  const mx = bx + Math.cos(a) * br * 2.75
-  const my = by + Math.sin(a) * br * 2.75
+  const mx = bx + dm.cos(a) * br * 2.75
+  const my = by + dm.sin(a) * br * 2.75
   drawSparkBurst(ctx, mx, my, a, br * 0.7, 0.9)
 }
 
 export const cannonDef: CharacterDef = {
   id: 'cannon',
-  name: '大炮',
   nameEn: 'CANNON',
-  tagline: '瞄准，开炮！',
-  rules: [
-    '炮管平时跟着前进方向转，开炮前一刻才转向敌人，预判它的走位瞄准',
-    `每发炮弹直线飞行，命中 -${SHELL_DAMAGE}，撞墙即消失`,
-    `开炮间隔从 ${COOLDOWN_START} 秒起，${COOLDOWN_RAMP} 秒内逐渐缩短到 ${COOLDOWN_END} 秒`,
-    `炮管提前 ${AIM_TIME} 秒开始瞄准，躲开就打空`,
-  ],
+  ruleValues: { shellDamage: SHELL_DAMAGE, cooldownStart: COOLDOWN_START, cooldownRamp: COOLDOWN_RAMP, cooldownEnd: COOLDOWN_END, aimTime: AIM_TIME },
   palette: { ball: '#fdbd26', text: '#ffffff', accent: '#ebc134' },
   mirrorPalette: { ball: '#a16207', text: '#fef9c3', accent: '#facc15' },
   create: (w, b) => new CannonAbility(w, b),

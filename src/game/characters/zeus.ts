@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -64,7 +65,7 @@ export class ZeusAbility extends Ability {
     for (let i = 0; i < BOLTS; i++) {
       const a = rng.range(0, Math.PI * 2)
       const d = rng.range(BALL_RADIUS * 1.2, TARGET_RANGE)
-      this.marks.push({ x: clamp(o.x + Math.cos(a) * d, MARK_RADIUS, s - MARK_RADIUS), y: clamp(o.y + Math.sin(a) * d, MARK_RADIUS, s - MARK_RADIUS) })
+      this.marks.push({ x: clamp(o.x + dm.cos(a) * d, MARK_RADIUS, s - MARK_RADIUS), y: clamp(o.y + dm.sin(a) * d, MARK_RADIUS, s - MARK_RADIUS) })
     }
     this.charge = 0
     this.world.sound('zap', 0.3, 0.6)
@@ -75,7 +76,7 @@ export class ZeusAbility extends Ability {
     for (const m of this.marks) {
       const dx = e.x - m.x
       const dy = e.y - m.y
-      const d = Math.hypot(dx, dy)
+      const d = dm.hypot(dx, dy)
       if (d < 1) continue
       const step = Math.min(d, MARK_DRIFT * dt)
       m.x += (dx / d) * step
@@ -94,9 +95,9 @@ export class ZeusAbility extends Ability {
       if (!e.alive) continue
       const onBolt = (() => {
         const p = closestPointOnSegment(e.pos, from, m)
-        return Math.hypot(p.x - e.pos.x, p.y - e.pos.y) < e.radius + BOLT_HALF_WIDTH
+        return dm.hypot(p.x - e.pos.x, p.y - e.pos.y) < e.radius + BOLT_HALF_WIDTH
       })()
-      const inBlast = Math.hypot(e.pos.x - m.x, e.pos.y - m.y) < e.radius + BLAST_RADIUS
+      const inBlast = dm.hypot(e.pos.x - m.x, e.pos.y - m.y) < e.radius + BLAST_RADIUS
       if (onBolt || inBlast) {
         this.world.damage(e, BOLT_DAMAGE, { kind: 'lightning', source: this.owner, at: m, shake: 6 })
       }
@@ -135,7 +136,7 @@ export class ZeusAbility extends Ability {
       // Flicker: re-roll the zigzag a few times per second.
       const seed = b.seed + Math.floor(b.age * 14) * 17
       ctx.save()
-      ctx.globalAlpha = fade * life * (0.7 + 0.3 * Math.sin(b.age * 60))
+      ctx.globalAlpha = fade * life * (0.7 + 0.3 * dm.sin(b.age * 60))
       drawBolt(ctx, b.from, b.to, seed)
       ctx.restore()
     }
@@ -148,14 +149,14 @@ export class ZeusAbility extends Ability {
 }
 
 function pseudo(n: number): number {
-  const x = Math.sin(n * 12.9898) * 43758.5453
+  const x = dm.sin(n * 12.9898) * 43758.5453
   return x - Math.floor(x)
 }
 
 export function drawBolt(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, seed: number): void {
   const dx = to.x - from.x
   const dy = to.y - from.y
-  const len = Math.hypot(dx, dy) || 1
+  const len = dm.hypot(dx, dy) || 1
   const nx = -dy / len
   const ny = dx / len
   const segs = Math.max(4, Math.floor(len / 18))
@@ -227,15 +228,8 @@ export function drawZeusPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: 
 
 export const zeusDef: CharacterDef = {
   id: 'zeus',
-  name: '宙斯',
   nameEn: 'ZEUS',
-  tagline: '天降神罚',
-  rules: [
-    `每 ${STRIKE_INTERVAL} 秒在身边标出 ${BOLTS} 个落雷点，标记会慢慢飘向敌人`,
-    `${TELEGRAPH_TIME} 秒后从自身劈出 ${BOLTS} 道闪电打到标记上`,
-    `每道闪电或落点爆炸波及敌人 -${BOLT_DAMAGE}，三道可以同时命中`,
-    '本体没有其他攻击',
-  ],
+  ruleValues: { strikeInterval: STRIKE_INTERVAL, bolts: BOLTS, telegraphTime: TELEGRAPH_TIME, boltDamage: BOLT_DAMAGE },
   palette: { ball: '#4cb4f4', text: '#ffffff', accent: '#50b0f8' },
   mirrorPalette: { ball: '#0e7490', text: '#cffafe', accent: '#22d3ee' },
   create: (w, b) => new ZeusAbility(w, b),

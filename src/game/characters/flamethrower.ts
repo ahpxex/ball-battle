@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { angleDiff, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
@@ -64,7 +65,7 @@ export class FlamethrowerAbility extends Ability {
     super(world, owner)
     // Face the opponent from the start so the rig looks right during the countdown.
     const e = this.enemy
-    this.angle = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
+    this.angle = dm.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
   }
 
   private get burning(): boolean {
@@ -77,8 +78,8 @@ export class FlamethrowerAbility extends Ability {
     const now = this.world.time
     const dx = e.pos.x - o.pos.x
     const dy = e.pos.y - o.pos.y
-    const d = Math.hypot(dx, dy)
-    const toEnemy = Math.atan2(dy, dx)
+    const d = dm.hypot(dx, dy)
+    const toEnemy = dm.atan2(dy, dx)
 
     if (e.alive) {
       const step = TURN_RATE * dt
@@ -95,7 +96,7 @@ export class FlamethrowerAbility extends Ability {
       this.emitFlame()
       this.roar(dt)
       const reach = CONE_LENGTH + e.radius
-      const widen = d > SMALL ? Math.asin(Math.min(1, e.radius / d)) : Math.PI
+      const widen = d > SMALL ? dm.asin(Math.min(1, e.radius / d)) : Math.PI
       beingHit = d <= reach && off <= CONE_HALF_ANGLE + widen
     } else {
       this.roarCd = 0
@@ -124,8 +125,8 @@ export class FlamethrowerAbility extends Ability {
   private emitFlame(): void {
     const o = this.owner
     const r = o.radius
-    const c = Math.cos(this.angle)
-    const s = Math.sin(this.angle)
+    const c = dm.cos(this.angle)
+    const s = dm.sin(this.angle)
     for (const side of [-1, 1]) {
       const lx = NOZZLE_TIP * r
       const ly = side * NOZZLE_OFFSET * r
@@ -187,7 +188,7 @@ export class FlamethrowerAbility extends Ability {
         ctx.globalAlpha = fade * (0.55 + 0.45 * left) * (0.5 + 0.5 * h2)
         ctx.fillStyle = i % 3 === 0 ? '#ffd54a' : '#ff7b1a'
         ctx.beginPath()
-        ctx.arc(e.pos.x + Math.cos(a) * rr, e.pos.y + Math.sin(a) * rr - rise, 1.3 + h * 1.4, 0, Math.PI * 2)
+        ctx.arc(e.pos.x + dm.cos(a) * rr, e.pos.y + dm.sin(a) * rr - rise, 1.3 + h * 1.4, 0, Math.PI * 2)
         ctx.fill()
       }
     }
@@ -196,7 +197,7 @@ export class FlamethrowerAbility extends Ability {
 }
 
 function hash(x: number): number {
-  const h = Math.sin(x * 12.9898) * 43758.5453
+  const h = dm.sin(x * 12.9898) * 43758.5453
   return h - Math.floor(h)
 }
 
@@ -212,7 +213,7 @@ function drawRigBack(ctx: CanvasRenderingContext2D, cx: number, cy: number, angl
   for (const side of [-1, 1]) {
     const from = { x: tx + hw * 0.9, y: side * hl * 0.5 }
     const rimA = Math.PI - side * 0.62
-    drawChain(ctx, from, { x: Math.cos(rimA) * r * 0.92, y: Math.sin(rimA) * r * 0.92 }, 1.5)
+    drawChain(ctx, from, { x: dm.cos(rimA) * r * 0.92, y: dm.sin(rimA) * r * 0.92 }, 1.5)
   }
   // Tank body (long axis across the aim direction).
   ctx.fillStyle = '#e8431a'
@@ -287,7 +288,7 @@ function drawFlameGlow(ctx: CanvasRenderingContext2D, cx: number, cy: number, an
   ctx.translate(cx, cy)
   ctx.rotate(angle)
   ctx.globalCompositeOperation = 'lighter'
-  const flicker = 0.85 + 0.15 * Math.sin(time * 37)
+  const flicker = 0.85 + 0.15 * dm.sin(time * 37)
   const blobs: [number, number, number][] = [
     [3.6, 0.9, 0.22],
     [5.0, 1.25, 0.2],
@@ -333,8 +334,8 @@ export function drawFlamethrowerPortrait(ctx: CanvasRenderingContext2D, cx: numb
   ctx.fill()
   drawRigFront(ctx, x, y, a, s)
   // A short burst of fireballs leaving the nozzles.
-  const c = Math.cos(a)
-  const sn = Math.sin(a)
+  const c = dm.cos(a)
+  const sn = dm.sin(a)
   const balls: [number, number, number, string][] = [
     [2.9, -0.45, 0.13, '#ffd54a'],
     [2.95, 0.45, 0.13, '#ffd54a'],
@@ -360,15 +361,8 @@ export function drawFlamethrowerPortrait(ctx: CanvasRenderingContext2D, cx: numb
 
 export const flamethrowerDef: CharacterDef = {
   id: 'flamethrower',
-  name: '纵火犯',
   nameEn: 'FLAMETHROWER',
-  tagline: '离得越近烧得越旺',
-  rules: [
-    '双管喷火器始终对准敌人，进入射程就持续喷火',
-    `贴近时每 ${FLAME_CLOSE_TICK} 秒 -${FIRE_DAMAGE}，火焰末端每 ${FLAME_FAR_TICK} 秒 -${FIRE_DAMAGE}`,
-    `被烧到会着火：离开火焰后每 ${BURN_TICK} 秒 -${BURN_DAMAGE}，最多烧 ${BURN_DURATION} 秒`,
-    '不减速也不击退，被缴械时停火',
-  ],
+  ruleValues: { flameCloseTick: FLAME_CLOSE_TICK, fireDamage: FIRE_DAMAGE, flameFarTick: FLAME_FAR_TICK, burnTick: BURN_TICK, burnDamage: BURN_DAMAGE, burnDuration: BURN_DURATION },
   palette: { ball: '#ff7b1a', text: '#ffffff', accent: '#f77d30' },
   mirrorPalette: { ball: '#b91c1c', text: '#fee2e2', accent: '#ef4444' },
   create: (w, b) => new FlamethrowerAbility(w, b),

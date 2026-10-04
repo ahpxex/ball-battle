@@ -1,4 +1,5 @@
-import { type Vec, len } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, distSq, len } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -79,7 +80,7 @@ export class FrostAbility extends Ability {
     const o = this.owner
     const now = this.world.time
     const last = this.samples[this.samples.length - 1]
-    if (!last || (o.pos.x - last.x) ** 2 + (o.pos.y - last.y) ** 2 >= SAMPLE_SPACING * SAMPLE_SPACING) {
+    if (!last || distSq(o.pos, last) >= SAMPLE_SPACING * SAMPLE_SPACING) {
       this.samples.push({ x: o.pos.x, y: o.pos.y, born: now })
     }
     if (this.world.headless) return
@@ -95,11 +96,11 @@ export class FrostAbility extends Ability {
     const rnd = () => this.world.effects.random()
     const sp = len(o.vel)
     // Spread across the direction of travel (any axis if standing still).
-    const heading = sp > 1 ? Math.atan2(o.vel.y, o.vel.x) : rnd() * Math.PI * 2
-    const px = -Math.sin(heading)
-    const py = Math.cos(heading)
-    const fx = Math.cos(heading)
-    const fy = Math.sin(heading)
+    const heading = sp > 1 ? dm.atan2(o.vel.y, o.vel.x) : rnd() * Math.PI * 2
+    const px = -dm.sin(heading)
+    const py = dm.cos(heading)
+    const fx = dm.cos(heading)
+    const fy = dm.sin(heading)
     const along = sp * SHARD_INTERVAL * 0.5
     for (let i = 0; i < SHARDS_PER_DROP; i++) {
       const side = (rnd() * 2 - 1) * SHARD_SPREAD
@@ -111,8 +112,8 @@ export class FrostAbility extends Ability {
         // Irregular triangle: jittered vertex angles and radii.
         const a = rot + (k / 3) * Math.PI * 2 + (rnd() - 0.5) * 0.9
         const rr = size * (0.4 + rnd() * 0.35)
-        pts[k * 2] = Math.cos(a) * rr
-        pts[k * 2 + 1] = Math.sin(a) * rr
+        pts[k * 2] = dm.cos(a) * rr
+        pts[k * 2 + 1] = dm.sin(a) * rr
       }
       this.shards.push({
         x: o.pos.x + px * side + fx * fwd,
@@ -128,7 +129,7 @@ export class FrostAbility extends Ability {
     const reach = e.radius + BAND_HALF_WIDTH
     const r2 = reach * reach
     for (const s of this.samples) {
-      if ((e.pos.x - s.x) ** 2 + (e.pos.y - s.y) ** 2 <= r2) return true
+      if (distSq(e.pos, s) <= r2) return true
     }
     return false
   }
@@ -223,8 +224,8 @@ function makeCracks(rnd: () => number): Crack[] {
     const step = 1.15 / segs
     for (let k = 0; k < segs; k++) {
       const a = heading + (rnd() - 0.5) * 1.1
-      x += Math.cos(a) * step
-      y += Math.sin(a) * step
+      x += dm.cos(a) * step
+      y += dm.sin(a) * step
       pts.push({ x, y })
     }
     cracks.push(pts)
@@ -232,7 +233,7 @@ function makeCracks(rnd: () => number): Crack[] {
     if (rnd() < 0.6) {
       const mid = pts[Math.min(2, pts.length - 1)]
       const a = heading + (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.5)
-      cracks.push([mid, { x: mid.x + Math.cos(a) * 0.35, y: mid.y + Math.sin(a) * 0.35 }])
+      cracks.push([mid, { x: mid.x + dm.cos(a) * 0.35, y: mid.y + dm.sin(a) * 0.35 }])
     }
   }
   return cracks
@@ -268,7 +269,7 @@ function drawFrozenOverlay(ctx: CanvasRenderingContext2D, cx: number, cy: number
 export function drawFrostPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
   // Deterministic pseudo-random shard carpet sweeping in from the lower left.
   const hash = (n: number) => {
-    const h = Math.sin(n * 12.9898) * 43758.5453
+    const h = dm.sin(n * 12.9898) * 43758.5453
     return h - Math.floor(h)
   }
   const k = r / BALL_RADIUS
@@ -280,7 +281,7 @@ export function drawFrostPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
     const t = i / 70
     // Path: a gentle arc from (-1.5r, 1.3r) to the ball centre, kept within ±2.5r.
     const bx = cx + r * (-1.5 + 1.5 * t)
-    const by = cy + r * (1.3 - 1.3 * t - 0.5 * Math.sin(t * Math.PI))
+    const by = cy + r * (1.3 - 1.3 * t - 0.5 * dm.sin(t * Math.PI))
     const side = (hash(i + 1) * 2 - 1) * SHARD_SPREAD * k * 0.7
     const nx = 0.63
     const ny = 0.78
@@ -292,8 +293,8 @@ export function drawFrostPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
     for (let v = 0; v < 3; v++) {
       const a = rot + (v / 3) * Math.PI * 2 + (hash(i * 3 + v + 200) - 0.5) * 0.9
       const rr = size * (0.4 + hash(i * 3 + v + 400) * 0.35)
-      pts[v * 2] = Math.cos(a) * rr
-      pts[v * 2 + 1] = Math.sin(a) * rr
+      pts[v * 2] = dm.cos(a) * rr
+      pts[v * 2 + 1] = dm.sin(a) * rr
     }
     const p = new Path2D()
     shardPath(p, { x, y, born: 0, color: 0, pts }, 1)
@@ -312,15 +313,8 @@ export function drawFrostPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const frostDef: CharacterDef = {
   id: 'frost',
-  name: '冰霜',
   nameEn: 'FROST BALL',
-  tagline: '踩上冰路就别想走',
-  rules: [
-    `走过的地方留下一条冰晶路，持续 ${TRAIL_LIFETIME} 秒`,
-    '敌人踏上冰路就会被冻住：逐渐停下并被缴械',
-    `待在冰路上每 ${FROST_TICK} 秒 -${FROST_DAMAGE}`,
-    '自己不受冰路影响，撞击没有伤害',
-  ],
+  ruleValues: { trailLifetime: TRAIL_LIFETIME, frostTick: FROST_TICK, frostDamage: FROST_DAMAGE },
   palette: { ball: '#50ccfc', text: '#ffffff', accent: '#4fc3f7' },
   mirrorPalette: { ball: '#1e6fa8', text: '#e0f2fe', accent: '#7dd3fc' },
   create: (w, b) => new FrostAbility(w, b),

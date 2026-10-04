@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
@@ -73,7 +74,7 @@ export class TrapperAbility extends Ability {
     const corners: Vec[] = [aim]
     for (const k of [0, 1]) {
       const a = rot + k * (Math.PI / 3)
-      corners.push({ x: aim.x + Math.cos(a) * CLUSTER_SIDE, y: aim.y + Math.sin(a) * CLUSTER_SIDE })
+      corners.push({ x: aim.x + dm.cos(a) * CLUSTER_SIDE, y: aim.y + dm.sin(a) * CLUSTER_SIDE })
     }
     for (const c of corners) {
       this.traps.push({
@@ -91,7 +92,7 @@ export class TrapperAbility extends Ability {
   private cage(t: Trap, e: Ball, now: number): void {
     const dx = e.pos.x - t.at.x
     const dy = e.pos.y - t.at.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     const free = TRAP_RADIUS - e.radius
     if (!t.caged) {
       // Snaps shut once the enemy is entirely inside the ring.
@@ -162,15 +163,15 @@ export function drawTrapRing(ctx: CanvasRenderingContext2D, x: number, y: number
   ctx.fillStyle = '#c084fc'
   for (let i = 0; i < BARBS; i++) {
     const a = (i / BARBS) * Math.PI * 2
-    const px = x + Math.cos(a) * r
-    const py = y + Math.sin(a) * r
-    const tx = -Math.sin(a)
-    const ty = Math.cos(a)
+    const px = x + dm.cos(a) * r
+    const py = y + dm.sin(a) * r
+    const tx = -dm.sin(a)
+    const ty = dm.cos(a)
     const s = Math.max(2, r * 0.07)
     ctx.beginPath()
     ctx.moveTo(px + tx * s * 1.4, py + ty * s * 1.4)
-    ctx.lineTo(px - tx * s * 0.6 + Math.cos(a) * s * 0.7, py - ty * s * 0.6 + Math.sin(a) * s * 0.7)
-    ctx.lineTo(px - tx * s * 0.6 - Math.cos(a) * s * 0.7, py - ty * s * 0.6 - Math.sin(a) * s * 0.7)
+    ctx.lineTo(px - tx * s * 0.6 + dm.cos(a) * s * 0.7, py - ty * s * 0.6 + dm.sin(a) * s * 0.7)
+    ctx.lineTo(px - tx * s * 0.6 - dm.cos(a) * s * 0.7, py - ty * s * 0.6 - dm.sin(a) * s * 0.7)
     ctx.closePath()
     ctx.fill()
   }
@@ -213,15 +214,8 @@ export function drawTrapperPortrait(ctx: CanvasRenderingContext2D, cx: number, c
 
 export const trapperDef: CharacterDef = {
   id: 'trapper',
-  name: '陷阱师',
   nameEn: 'TRAPPER',
-  tagline: '进了笼子就别想出来',
-  rules: [
-    `每 ${CAST_INTERVAL} 秒扔出 ${TRAPS_PER_CAST} 个带刺的笼子，其中一个扔在敌人前进的路上`,
-    '敌人整个进入笼子后就被关住，只能在里面来回弹',
-    `每撞一次笼壁 -${BOUNCE_DAMAGE}，跑得越快扣得越多`,
-    `笼子持续 ${TRAP_LIFETIME} 秒后一起消失`,
-  ],
+  ruleValues: { castInterval: CAST_INTERVAL, trapsPerCast: TRAPS_PER_CAST, bounceDamage: BOUNCE_DAMAGE, trapLifetime: TRAP_LIFETIME },
   palette: { ball: '#a855f7', text: '#ffffff', accent: '#b26ef7' },
   mirrorPalette: { ball: '#6b21a8', text: '#f3e8ff', accent: '#d946ef' },
   create: (w, b) => new TrapperAbility(w, b),

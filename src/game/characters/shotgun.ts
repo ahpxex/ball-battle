@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { distanceToSegment } from '../core/geometry'
 import { type Vec, angleDiff, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -37,7 +38,7 @@ interface Pellet {
 
 /** Cooldown after `shots` shots have been fired: max(MIN, START · DECAY^shots). */
 export function shotInterval(shots: number): number {
-  return Math.max(INTERVAL_MIN, INTERVAL_START * INTERVAL_DECAY ** shots)
+  return Math.max(INTERVAL_MIN, INTERVAL_START * dm.pow(INTERVAL_DECAY, shots))
 }
 
 /**
@@ -56,7 +57,7 @@ export class ShotgunAbility extends Ability {
   constructor(world: World, owner: Ball) {
     super(world, owner)
     const e = this.enemy
-    this.angle = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
+    this.angle = dm.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
   }
 
   override update(dt: number): void {
@@ -77,7 +78,7 @@ export class ShotgunAbility extends Ability {
     const e = this.enemy
     if (!e.alive) return
     const o = this.owner.pos
-    const want = Math.atan2(e.pos.y - o.y, e.pos.x - o.x)
+    const want = dm.atan2(e.pos.y - o.y, e.pos.x - o.x)
     const step = TURN_SPEED * dt
     this.angle += clamp(angleDiff(this.angle, want), -step, step)
   }
@@ -89,8 +90,8 @@ export class ShotgunAbility extends Ability {
     let hitAtMuzzle = false
     for (let i = 0; i < PELLETS; i++) {
       const a = this.angle + rng.range(-SPREAD, SPREAD)
-      const dx = Math.cos(a)
-      const dy = Math.sin(a)
+      const dx = dm.cos(a)
+      const dy = dm.sin(a)
       const breech = { x: o.x + dx * BREECH_DISTANCE, y: o.y + dy * BREECH_DISTANCE }
       const muzzle = { x: o.x + dx * MUZZLE_DISTANCE, y: o.y + dy * MUZZLE_DISTANCE }
       // An enemy pressed against the barrel is hit before the pellet leaves it.
@@ -106,9 +107,9 @@ export class ShotgunAbility extends Ability {
     if (hitAtMuzzle) this.world.addShake(1.5)
     // Spent shell kicked out of the receiver, arcing away to the side.
     const side = this.angle - Math.PI / 2
-    const receiver = { x: o.x + Math.cos(this.angle) * BALL_RADIUS * 1.4, y: o.y + Math.sin(this.angle) * BALL_RADIUS * 1.4 }
+    const receiver = { x: o.x + dm.cos(this.angle) * BALL_RADIUS * 1.4, y: o.y + dm.sin(this.angle) * BALL_RADIUS * 1.4 }
     this.world.effects.burst(receiver, { count: 1, color: '#c2410c', shape: 'shard', direction: side, spread: 0.35, speed: [140, 190], size: [3.5, 4.5], life: [0.3, 0.4], gravity: 700, drag: 1, endScale: 1 })
-    const muzzle = { x: o.x + Math.cos(this.angle) * MUZZLE_DISTANCE, y: o.y + Math.sin(this.angle) * MUZZLE_DISTANCE }
+    const muzzle = { x: o.x + dm.cos(this.angle) * MUZZLE_DISTANCE, y: o.y + dm.sin(this.angle) * MUZZLE_DISTANCE }
     this.world.effects.burst(muzzle, { count: 5, color: ['#e5e7eb', '#a1a1aa'], shape: 'smoke', direction: this.angle, spread: 0.5, speed: [30, 110], size: [4, 8], life: [0.25, 0.5], endScale: 2.2 })
   }
 
@@ -150,7 +151,7 @@ export class ShotgunAbility extends Ability {
     if (this.sinceShot < FLASH_TIME && this.owner.alive) {
       const o = this.owner.pos
       const u = 1 - this.sinceShot / FLASH_TIME
-      drawMuzzleFlash(ctx, o.x + Math.cos(this.angle) * MUZZLE_DISTANCE, o.y + Math.sin(this.angle) * MUZZLE_DISTANCE, this.angle, BALL_RADIUS * 0.35 * (0.7 + 0.3 * u), u)
+      drawMuzzleFlash(ctx, o.x + dm.cos(this.angle) * MUZZLE_DISTANCE, o.y + dm.sin(this.angle) * MUZZLE_DISTANCE, this.angle, BALL_RADIUS * 0.35 * (0.7 + 0.3 * u), u)
     }
     ctx.restore()
   }
@@ -226,9 +227,9 @@ function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: number, an
   // Short spikes of flame ahead of the puff.
   ctx.beginPath()
   for (const a of [-0.55, 0, 0.55]) {
-    ctx.moveTo(radius * 0.8 + Math.cos(a + Math.PI / 2) * radius * 0.4, Math.sin(a + Math.PI / 2) * radius * 0.4)
-    ctx.lineTo(radius * 0.8 + Math.cos(a) * radius * 2, Math.sin(a) * radius * 2)
-    ctx.lineTo(radius * 0.8 + Math.cos(a - Math.PI / 2) * radius * 0.4, Math.sin(a - Math.PI / 2) * radius * 0.4)
+    ctx.moveTo(radius * 0.8 + dm.cos(a + Math.PI / 2) * radius * 0.4, dm.sin(a + Math.PI / 2) * radius * 0.4)
+    ctx.lineTo(radius * 0.8 + dm.cos(a) * radius * 2, dm.sin(a) * radius * 2)
+    ctx.lineTo(radius * 0.8 + dm.cos(a - Math.PI / 2) * radius * 0.4, dm.sin(a - Math.PI / 2) * radius * 0.4)
   }
   ctx.fill()
   ctx.fillStyle = '#fb923c'
@@ -252,28 +253,21 @@ export function drawShotgunPortrait(ctx: CanvasRenderingContext2D, cx: number, c
   ctx.arc(bx, by, s, 0, Math.PI * 2)
   ctx.fill()
   drawShotgun(ctx, bx, by, a, s)
-  const mx = bx + Math.cos(a) * MUZZLE_DISTANCE * (s / BALL_RADIUS)
-  const my = by + Math.sin(a) * MUZZLE_DISTANCE * (s / BALL_RADIUS)
+  const mx = bx + dm.cos(a) * MUZZLE_DISTANCE * (s / BALL_RADIUS)
+  const my = by + dm.sin(a) * MUZZLE_DISTANCE * (s / BALL_RADIUS)
   drawMuzzleFlash(ctx, mx, my, a, s * 0.35, 1)
   ctx.fillStyle = '#ffffff'
   for (const [d, off] of [[1.0, -0.06], [1.3, 0.03], [1.55, -0.02], [1.2, 0.08]] as const) {
     ctx.beginPath()
-    ctx.arc(mx + Math.cos(a + off) * s * d, my + Math.sin(a + off) * s * d, 2, 0, Math.PI * 2)
+    ctx.arc(mx + dm.cos(a + off) * s * d, my + dm.sin(a + off) * s * d, 2, 0, Math.PI * 2)
     ctx.fill()
   }
 }
 
 export const shotgunDef: CharacterDef = {
   id: 'shotgun',
-  name: '霰弹枪',
   nameEn: 'SHOTGUN V2',
-  tagline: '越打越快的霰弹',
-  rules: [
-    `一把霰弹枪慢慢转向敌人（每秒最多 ${Math.round((TURN_SPEED * 180) / Math.PI)}°），装填好就开火，不管有没有瞄准`,
-    `开局 ${FIRST_SHOT} 秒后第一枪，每枪射出 ${PELLETS} 颗弹丸，每颗 -${PELLET_DAMAGE}`,
-    `射击间隔从 ${INTERVAL_START} 秒起每枪缩短 ${Math.round((1 - INTERVAL_DECAY) * 100)}%，最快 ${INTERVAL_MIN} 秒一枪`,
-    '弹丸碰到墙壁就消失，没有后坐力',
-  ],
+  ruleValues: { turnDegrees: Math.round((TURN_SPEED * 180) / Math.PI), firstShot: FIRST_SHOT, pellets: PELLETS, pelletDamage: PELLET_DAMAGE, intervalStart: INTERVAL_START, intervalShrinkPercent: Math.round((1 - INTERVAL_DECAY) * 100), intervalMin: INTERVAL_MIN },
   palette: { ball: '#606058', text: '#ffffff', accent: '#8a8a7a' },
   mirrorPalette: { ball: '#3f3f46', text: '#f4f4f5', accent: '#a1a1aa' },
   create: (w, b) => new ShotgunAbility(w, b),

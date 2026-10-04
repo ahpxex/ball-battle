@@ -8,17 +8,29 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "deploy": "bun run build && wrangler deploy",
+    "deploy": "bun run build && wrangler d1 migrations apply ball-battle --remote && wrangler deploy",
     "sim": "bun run scripts/simulate.ts",
     "dps": "bun run scripts/dps.ts",
-    "vsall": "bun run scripts/vsall.ts"
+    "vsall": "bun run scripts/vsall.ts",
+    "typegen": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply ball-battle --local",
+    "db:migrate:remote": "wrangler d1 migrations apply ball-battle --remote",
+    "check:determinism": "bun run scripts/determinism.ts",
+    "check:dmath": "bun run scripts/dmath-check.ts --no-bench",
+    "check:i18n": "bun run scripts/i18n-check.ts",
+    "audit": "bun run scripts/audit.ts"
   },
   "dependencies": {
     "@fontsource/silkscreen": "^5.3.0",
+    "hono": "^4.13.12",
+    "i18next": "^26.4.2",
+    "i18next-browser-languagedetector": "^8.2.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.15"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.62.5",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
@@ -28,6 +40,6 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
-    "wrangler": "^4.145.0"
+    "wrangler": "^4.147.0"
   }
 }

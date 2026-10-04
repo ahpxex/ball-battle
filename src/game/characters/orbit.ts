@@ -1,6 +1,8 @@
+import * as dm from '../core/dmath'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import type { CharacterDef } from './types'
+import { distSq } from '../core/vec'
 
 const FIRST_SPAWN = 0.7
 export const SPAWN_INTERVAL = 0.9
@@ -63,7 +65,7 @@ export class OrbitAbility extends Ability {
 
   /** Eases the orbs on each ring towards an even spread, keeping their order. */
   private relax(dt: number): void {
-    const k = 1 - Math.exp(-SPACING_RATE * dt)
+    const k = 1 - dm.exp(-SPACING_RATE * dt)
     for (let ring = 0; ring < RING_COUNT; ring++) {
       const on = this.orbs.filter((o) => o.ring === ring)
       if (on.length < 2) continue
@@ -73,10 +75,10 @@ export class OrbitAbility extends Ability {
       let sx = 0
       let sy = 0
       on.forEach((o, i) => {
-        sx += Math.cos(o.offset - i * step)
-        sy += Math.sin(o.offset - i * step)
+        sx += dm.cos(o.offset - i * step)
+        sy += dm.sin(o.offset - i * step)
       })
-      const base = Math.atan2(sy, sx)
+      const base = dm.atan2(sy, sx)
       on.forEach((o, i) => {
         let target = base + i * step
         let diff = (target - o.offset) % (Math.PI * 2)
@@ -91,7 +93,7 @@ export class OrbitAbility extends Ability {
   private orbPos(o: Orb): { x: number; y: number } {
     const a = this.phases[o.ring] + o.offset
     const r = RING_BASE + RING_STEP * o.ring
-    return { x: this.owner.pos.x + Math.cos(a) * r, y: this.owner.pos.y + Math.sin(a) * r }
+    return { x: this.owner.pos.x + dm.cos(a) * r, y: this.owner.pos.y + dm.sin(a) * r }
   }
 
   private collide(): void {
@@ -101,7 +103,7 @@ export class OrbitAbility extends Ability {
     this.orbs = this.orbs.filter((o) => {
       if (o.age < POP_TIME) return true
       const p = this.orbPos(o)
-      if ((p.x - e.pos.x) ** 2 + (p.y - e.pos.y) ** 2 >= reach * reach) return true
+      if (distSq(p, e.pos) >= reach * reach) return true
       this.world.damage(e, ORB_DAMAGE, { kind: 'orb', source: this.owner, at: p })
       return false
     })
@@ -167,20 +169,13 @@ export function drawOrbitPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2)
   ctx.fill()
   drawOrbitOrb(ctx, cx + r * 1.4, cy, r * 0.25)
-  for (const a of [0.6, 2.7, 4.8]) drawOrbitOrb(ctx, cx + Math.cos(a) * r * 2.3, cy + Math.sin(a) * r * 2.3, r * 0.25)
+  for (const a of [0.6, 2.7, 4.8]) drawOrbitOrb(ctx, cx + dm.cos(a) * r * 2.3, cy + dm.sin(a) * r * 2.3, r * 0.25)
 }
 
 export const orbitDef: CharacterDef = {
   id: 'orbit',
-  name: '轨道',
   nameEn: 'ORBIT BALL',
-  tagline: '自带一个小太阳系',
-  rules: [
-    `每 ${SPAWN_INTERVAL} 秒长出一颗小球，绕着本体公转`,
-    `由内到外填满 ${RING_COUNT} 圈轨道（每圈 1、3、5、7 颗，最多 ${MAX_ORBS} 颗）`,
-    '每圈转速不同，越靠内转得越快',
-    `小球撞到敌人 -${ORB_DAMAGE} 并消失，之后会慢慢补回来`,
-  ],
+  ruleValues: { spawnInterval: SPAWN_INTERVAL, ringCount: RING_COUNT, maxOrbs: MAX_ORBS, orbDamage: ORB_DAMAGE },
   palette: { ball: '#ff70b4', text: '#ffffff', accent: '#f672a8' },
   mirrorPalette: { ball: '#be185d', text: '#fce7f3', accent: '#ec4899' },
   create: (w, b) => new OrbitAbility(w, b),

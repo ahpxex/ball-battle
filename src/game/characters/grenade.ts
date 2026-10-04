@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import { predictPosition } from '../engine/predict'
@@ -86,8 +87,8 @@ export class GrenadeAbility extends Ability {
   private placeRing(grenades: Grenade[]): void {
     const o = this.owner.pos
     for (const g of grenades) {
-      g.pos.x = o.x + Math.cos(g.angle) * RING_RADIUS
-      g.pos.y = o.y + Math.sin(g.angle) * RING_RADIUS
+      g.pos.x = o.x + dm.cos(g.angle) * RING_RADIUS
+      g.pos.y = o.y + dm.sin(g.angle) * RING_RADIUS
     }
   }
 
@@ -103,9 +104,9 @@ export class GrenadeAbility extends Ability {
         const e = predictPosition(this.enemy, g.fuse + SETTLE_TIME, this.world.size)
         const a = rng.range(0, Math.PI * 2)
         const spread = Math.sqrt(rng.next()) * THROW_SPREAD
-        let dx = e.x + Math.cos(a) * spread - g.pos.x
-        let dy = e.y + Math.sin(a) * spread - g.pos.y
-        const d = Math.hypot(dx, dy)
+        let dx = e.x + dm.cos(a) * spread - g.pos.x
+        let dy = e.y + dm.sin(a) * spread - g.pos.y
+        const d = dm.hypot(dx, dy)
         if (d > MAX_THROW) {
           dx *= MAX_THROW / d
           dy *= MAX_THROW / d
@@ -121,7 +122,7 @@ export class GrenadeAbility extends Ability {
 
   private updateLoose(dt: number): void {
     const s = this.world.size
-    const k = Math.exp(-FLOOR_DRAG * dt)
+    const k = dm.exp(-FLOOR_DRAG * dt)
     const kept: Grenade[] = []
     for (const g of this.loose) {
       g.vel.x *= k
@@ -144,7 +145,7 @@ export class GrenadeAbility extends Ability {
     this.world.sound('explosion', 0.55)
     const e = this.enemy
     if (!e.alive) return
-    if ((e.pos.x - pos.x) ** 2 + (e.pos.y - pos.y) ** 2 < BLAST_RADIUS * BLAST_RADIUS) {
+    if (distSq(e.pos, pos) < BLAST_RADIUS * BLAST_RADIUS) {
       this.world.damage(e, GRENADE_DAMAGE, { kind: 'grenade', source: this.owner, at: e.pos })
     }
   }
@@ -166,7 +167,7 @@ export class GrenadeAbility extends Ability {
     for (const w of this.waves) for (const g of w.grenades) drawGrenade(ctx, g.pos.x, g.pos.y, 1, false)
     for (const g of this.loose) {
       // Blink faster as the fuse runs out.
-      const blink = g.fuse < 0.45 && Math.sin(t * 40) > 0
+      const blink = g.fuse < 0.45 && dm.sin(t * 40) > 0
       drawGrenade(ctx, g.pos.x, g.pos.y, 1, blink)
     }
     ctx.restore()
@@ -214,21 +215,14 @@ export function drawGrenadePortrait(ctx: CanvasRenderingContext2D, cx: number, c
   ctx.fill()
   for (let i = 0; i < 4; i++) {
     const a = -Math.PI / 2 + (i * Math.PI) / 2 + 0.4
-    drawGrenade(ctx, cx + Math.cos(a) * r * 1.65, cy + Math.sin(a) * r * 1.65, r / 34, i === 0)
+    drawGrenade(ctx, cx + dm.cos(a) * r * 1.65, cy + dm.sin(a) * r * 1.65, r / 34, i === 0)
   }
 }
 
 export const grenadeDef: CharacterDef = {
   id: 'grenade',
-  name: '手榴弹',
   nameEn: 'GRENADE',
-  tagline: '慢热的地毯式轰炸',
-  rules: [
-    `每 ${WAVE_INTERVAL} 秒在身边召唤一圈手榴弹，随后抛向敌人附近引爆`,
-    `每颗爆炸对范围内敌人 -${GRENADE_DAMAGE}（半径约 ${(BLAST_RADIUS / BALL_RADIUS).toFixed(1)} 个球半径）`,
-    `每一波比上一波多一颗，最多 ${MAX_WAVE} 颗`,
-    '爆炸不会伤到自己',
-  ],
+  ruleValues: { waveInterval: WAVE_INTERVAL, grenadeDamage: GRENADE_DAMAGE, blastRadii: (BLAST_RADIUS / BALL_RADIUS).toFixed(1), maxWave: MAX_WAVE },
   palette: { ball: '#00993c', text: '#ffffff', accent: '#22a356' },
   mirrorPalette: { ball: '#065f46', text: '#d1fae5', accent: '#10b981' },
   create: (w, b) => new GrenadeAbility(w, b),

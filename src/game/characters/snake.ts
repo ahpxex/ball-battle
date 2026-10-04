@@ -1,4 +1,5 @@
-import { type Vec, damp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, damp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import type { World } from '../engine/World'
@@ -74,7 +75,7 @@ export class SnakeAbility extends Ability {
     const o = this.owner
     const s = this.world.size
     const r = o.radius
-    const sp = Math.hypot(o.vel.x, o.vel.y)
+    const sp = dm.hypot(o.vel.x, o.vel.y)
     let dx = sp > 1e-6 ? -o.vel.x / sp : -1
     let dy = sp > 1e-6 ? -o.vel.y / sp : 0
     let x = o.pos.x
@@ -122,7 +123,7 @@ export class SnakeAbility extends Ability {
   private recordTrail(): void {
     const p = this.owner.pos
     const last = this.trail[this.trail.length - 1]
-    if (last && (p.x - last.x) ** 2 + (p.y - last.y) ** 2 < TRAIL_STEP * TRAIL_STEP) return
+    if (last && distSq(p, last) < TRAIL_STEP * TRAIL_STEP) return
     this.trail.push({ x: p.x, y: p.y })
     // Drop path points beyond what the longest body could ever need.
     const max = this.maxTrailLength
@@ -130,7 +131,7 @@ export class SnakeAbility extends Ability {
     for (let i = this.trail.length - 1; i > 0; i--) {
       const a = this.trail[i]
       const b = this.trail[i - 1]
-      acc += Math.hypot(a.x - b.x, a.y - b.y)
+      acc += dm.hypot(a.x - b.x, a.y - b.y)
       if (acc > max) {
         this.trail.splice(0, i - 1)
         return
@@ -200,7 +201,7 @@ export class SnakeAbility extends Ability {
     let py = this.owner.pos.y
     for (let i = this.trail.length - 1; i >= 0 && k < dists.length; i--) {
       const q = this.trail[i]
-      const seg = Math.hypot(q.x - px, q.y - py)
+      const seg = dm.hypot(q.x - px, q.y - py)
       while (k < dists.length && dists[k] <= acc + seg) {
         const u = seg > 0 ? (dists[k] - acc) / seg : 0
         out.push({ x: px + (q.x - px) * u, y: py + (q.y - py) * u })
@@ -260,7 +261,7 @@ export class SnakeAbility extends Ability {
 function drawTailNub(ctx: CanvasRenderingContext2D, last: Segment, tip: Vec): void {
   const dx = last.x - tip.x
   const dy = last.y - tip.y
-  const d = Math.hypot(dx, dy)
+  const d = dm.hypot(dx, dy)
   if (d < 0.5 || last.r < 0.5) return
   const nx = -dy / d
   const ny = dx / d
@@ -286,11 +287,11 @@ export function drawSnakePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   let prev = headR
   for (const rr of radii) {
     ang += ((prev + rr) * 0.97) / ring
-    circles.push({ x: ox + Math.cos(ang) * ring, y: oy + Math.sin(ang) * ring, r: rr })
+    circles.push({ x: ox + dm.cos(ang) * ring, y: oy + dm.sin(ang) * ring, r: rr })
     prev = rr
   }
   const tipAng = ang + (prev * NUB_REACH) / ring
-  const tip = { x: ox + Math.cos(tipAng) * ring, y: oy + Math.sin(tipAng) * ring }
+  const tip = { x: ox + dm.cos(tipAng) * ring, y: oy + dm.sin(tipAng) * ring }
   ctx.save()
   ctx.fillStyle = color
   ctx.strokeStyle = OUTLINE
@@ -303,15 +304,15 @@ export function drawSnakePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
     ctx.fill()
     ctx.stroke()
   }
-  const hx = ox + Math.cos(-0.95) * ring
-  const hy = oy + Math.sin(-0.95) * ring
+  const hx = ox + dm.cos(-0.95) * ring
+  const hy = oy + dm.sin(-0.95) * ring
   // Forked tongue flicking forward.
   const fwd = -0.95 - Math.PI / 2
-  const tx = hx + Math.cos(fwd) * headR
-  const ty = hy + Math.sin(fwd) * headR
+  const tx = hx + dm.cos(fwd) * headR
+  const ty = hy + dm.sin(fwd) * headR
   const tl = r * 0.55
-  const ex = tx + Math.cos(fwd) * tl
-  const ey = ty + Math.sin(fwd) * tl
+  const ex = tx + dm.cos(fwd) * tl
+  const ey = ty + dm.sin(fwd) * tl
   ctx.strokeStyle = '#e11d48'
   ctx.lineWidth = r * 0.08
   ctx.lineCap = 'round'
@@ -319,9 +320,9 @@ export function drawSnakePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   ctx.moveTo(tx, ty)
   ctx.lineTo(ex, ey)
   ctx.moveTo(ex, ey)
-  ctx.lineTo(ex + Math.cos(fwd - 0.5) * tl * 0.35, ey + Math.sin(fwd - 0.5) * tl * 0.35)
+  ctx.lineTo(ex + dm.cos(fwd - 0.5) * tl * 0.35, ey + dm.sin(fwd - 0.5) * tl * 0.35)
   ctx.moveTo(ex, ey)
-  ctx.lineTo(ex + Math.cos(fwd + 0.5) * tl * 0.35, ey + Math.sin(fwd + 0.5) * tl * 0.35)
+  ctx.lineTo(ex + dm.cos(fwd + 0.5) * tl * 0.35, ey + dm.sin(fwd + 0.5) * tl * 0.35)
   ctx.stroke()
   ctx.fillStyle = color
   ctx.beginPath()
@@ -330,15 +331,15 @@ export function drawSnakePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   // Eyes looking along the tongue.
   for (const side of [-1, 1]) {
     const a = fwd + side * 0.55
-    const x = hx + Math.cos(a) * headR * 0.55
-    const y = hy + Math.sin(a) * headR * 0.55
+    const x = hx + dm.cos(a) * headR * 0.55
+    const y = hy + dm.sin(a) * headR * 0.55
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
     ctx.arc(x, y, r * 0.17, 0, Math.PI * 2)
     ctx.fill()
     ctx.fillStyle = '#0a0a0a'
     ctx.beginPath()
-    ctx.arc(x + Math.cos(fwd) * r * 0.05, y + Math.sin(fwd) * r * 0.05, r * 0.08, 0, Math.PI * 2)
+    ctx.arc(x + dm.cos(fwd) * r * 0.05, y + dm.sin(fwd) * r * 0.05, r * 0.08, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -346,15 +347,8 @@ export function drawSnakePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const snakeDef: CharacterDef = {
   id: 'snake',
-  name: '蟒蛇',
   nameEn: 'SNAKE',
-  tagline: '越长越难躲',
-  rules: [
-    `身后拖着 ${START_SEGMENTS} 节身体，每 ${GROW_INTERVAL} 秒长出一节（最多 ${MAX_SEGMENTS} 节）`,
-    `身体的每一节碰到敌人都会 -${SEGMENT_DAMAGE}，好几节可以同时咬`,
-    `同一节每 ${SEGMENT_COOLDOWN} 秒最多咬一次`,
-    '身体不挡路，敌人能直接穿过；蛇头本身没有伤害',
-  ],
+  ruleValues: { startSegments: START_SEGMENTS, growInterval: GROW_INTERVAL, maxSegments: MAX_SEGMENTS, segmentDamage: SEGMENT_DAMAGE, segmentCooldown: SEGMENT_COOLDOWN },
   palette: { ball: '#00db42', text: '#ffffff', accent: '#00d848' },
   mirrorPalette: { ball: '#0f766e', text: '#ccfbf1', accent: '#2dd4bf' },
   create: (w, b) => new SnakeAbility(w, b),

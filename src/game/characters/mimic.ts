@@ -1,9 +1,11 @@
+import { clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
-import { BASE_SPEED } from '../engine/constants'
+import { BALL_RADIUS, BASE_SPEED } from '../engine/constants'
 import type { BallContact, DamageOptions, WallBounce } from '../engine/types'
 import type { World } from '../engine/World'
 import { CHARACTERS } from './registry'
+import type { BorrowedAbility } from './thief'
 import type { CharacterDef } from './types'
 
 const FIRST_ROLL = 0.7
@@ -28,7 +30,7 @@ type Phase = 'neutral' | 'roll' | 'form'
  * from the roster and becomes it for a few seconds, using that character's
  * full ability, then goes back to neutral and rolls again. HP carries over.
  */
-export class MimicAbility extends Ability {
+export class MimicAbility extends Ability implements BorrowedAbility {
   private phase: Phase = 'neutral'
   private timer = FIRST_ROLL
   private form: Ability | null = null
@@ -104,6 +106,11 @@ export class MimicAbility extends Ability {
     this.world.effects.burst(this.owner.pos, { count: 16, color: ['#7c3aed', '#c4b5fd'], speed: [60, 200], size: [2, 4], life: [0.3, 0.5] })
   }
 
+  /** The character currently being imitated (a thief robbing a mimic takes this form). */
+  get borrowedCharacter(): CharacterDef | null {
+    return this.phase === 'form' ? this.formDef : null
+  }
+
   /** Undo any lasting changes a borrowed ability may have made to either ball. */
   private clearFormState(): void {
     const o = this.owner
@@ -112,6 +119,12 @@ export class MimicAbility extends Ability {
     o.invulnerable = false
     o.attachedTo = null
     o.baseSpeed = BASE_SPEED
+    // Size-changing forms (puffer, snowball) leave their radius and mass behind.
+    o.radius = BALL_RADIUS
+    o.mass = 1
+    const s = this.world.size
+    o.pos.x = clamp(o.pos.x, o.radius, s - o.radius)
+    o.pos.y = clamp(o.pos.y, o.radius, s - o.radius)
     if (e.attachedTo === o) e.attachedTo = null
     e.opacity = 1
     e.drawScale = 1
@@ -181,11 +194,6 @@ export class MimicAbility extends Ability {
     this.form?.renderFront(ctx)
   }
 
-  /** Display name of the current form, for UI. */
-  get formName(): string | null {
-    return this.formDef?.name ?? null
-  }
-
   /** The mimic's own colour, restored if a mirror palette was assigned. */
   get ownColor(): string {
     return this.baseColor
@@ -223,15 +231,8 @@ export function drawMimicPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const mimicDef: CharacterDef = {
   id: 'mimic',
-  name: '模仿者',
   nameEn: 'MIMIC BALL',
-  tagline: '你会的我都会',
-  rules: [
-    `自己没有武器：随机抽取一名其他角色，变身 ${FORM_TIME} 秒并使用它的全部能力`,
-    `变身期间造成的伤害 ×${FORM_DAMAGE_BONUS}`,
-    `变身结束后恢复原形 ${NEUTRAL_TIME} 秒，再抽下一个`,
-    '被定身或缴械时无法变身；血量一直保留',
-  ],
+  ruleValues: { formTime: FORM_TIME, formDamageBonus: FORM_DAMAGE_BONUS, neutralTime: NEUTRAL_TIME },
   palette: { ball: '#2a1650', text: '#ffffff', accent: '#8b5cf6' },
   mirrorPalette: { ball: '#3f1d38', text: '#fce7f3', accent: '#db2777' },
   create: (w, b) => new MimicAbility(w, b),

@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
@@ -91,7 +92,7 @@ export class DuplicatorAbility extends Ability {
     for (const m of this.swarm.minions) {
       const pop = clamp(m.age / 0.15, 0.2, 1)
       const r = m.radius * pop
-      const a = Math.atan2(m.vel.y, m.vel.x)
+      const a = dm.atan2(m.vel.y, m.vel.x)
       drawDagger(ctx, m.pos.x, m.pos.y, a, r)
       ctx.fillStyle = this.owner.color
       ctx.beginPath()
@@ -152,15 +153,8 @@ export function drawDuplicatorPortrait(ctx: CanvasRenderingContext2D, cx: number
 
 export const duplicatorDef: CharacterDef = {
   id: 'duplicator',
-  name: '复制者',
   nameEn: 'DUPLICATOR',
-  tagline: '以多欺少',
-  rules: [
-    '本体没有武器',
-    `每 ${WAVE_INTERVAL} 秒在全场随机位置召唤 ${CLONES_PER_WAVE} 个持匕首的分身`,
-    `分身追着敌人扎，每下 -${CLONE_DAMAGE}`,
-    `分身只有 ${CLONE_HP} 点生命，每秒掉 1，几秒后自行消散`,
-  ],
+  ruleValues: { waveInterval: WAVE_INTERVAL, clonesPerWave: CLONES_PER_WAVE, cloneDamage: CLONE_DAMAGE, cloneHp: CLONE_HP },
   palette: { ball: '#888888', text: '#ffffff', accent: '#a3a3a3' },
   mirrorPalette: { ball: '#57534e', text: '#f5f5f4', accent: '#a8a29e' },
   create: (w, b) => new DuplicatorAbility(w, b),

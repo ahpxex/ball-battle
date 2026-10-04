@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, angleOf, clamp, dist, len } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
@@ -90,7 +91,7 @@ export class SpiderAbility extends Ability {
     const aim = { x: e.pos.x + e.vel.x * 0.35, y: e.pos.y + e.vel.y * 0.35 }
     const dx = aim.x - o.pos.x
     const dy = aim.y - o.pos.y
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     const reach = Math.min(WEB_RANGE, d)
     const s = this.world.size
     const to = {
@@ -144,20 +145,26 @@ export class SpiderAbility extends Ability {
       // Scuttle straight over to the catch.
       const dx = prey.pos.x - o.pos.x
       const dy = prey.pos.y - o.pos.y
-      const d = Math.hypot(dx, dy) || 1
+      const d = dm.hypot(dx, dy) || 1
       if (d <= GRIP_DISTANCE + 6) {
         this.gripped = true
-        this.gripAngle = Math.atan2(o.pos.y - prey.pos.y, o.pos.x - prey.pos.x)
+        this.gripAngle = dm.atan2(o.pos.y - prey.pos.y, o.pos.x - prey.pos.x)
         o.pinned = true
         o.attachedTo = prey
         this.biteTimer = 0.05
       } else if (o.movable) {
         o.vel = { x: (dx / d) * APPROACH_SPEED, y: (dy / d) * APPROACH_SPEED }
+      } else if (!prey.pinned) {
+        // Stuck in place itself (e.g. caught in another spider's web): reel the catch in on the silk instead.
+        const step = Math.min(APPROACH_SPEED * dt, d - (GRIP_DISTANCE + 6))
+        const s = this.world.size
+        prey.pos.x = clamp(prey.pos.x - (dx / d) * step, prey.radius, s - prey.radius)
+        prey.pos.y = clamp(prey.pos.y - (dy / d) * step, prey.radius, s - prey.radius)
       }
       return
     }
-    o.pos.x = prey.pos.x + Math.cos(this.gripAngle) * GRIP_DISTANCE
-    o.pos.y = prey.pos.y + Math.sin(this.gripAngle) * GRIP_DISTANCE
+    o.pos.x = prey.pos.x + dm.cos(this.gripAngle) * GRIP_DISTANCE
+    o.pos.y = prey.pos.y + dm.sin(this.gripAngle) * GRIP_DISTANCE
     o.vel = { x: 0, y: 0 }
     this.heading = this.gripAngle + Math.PI
     this.biteTimer -= dt
@@ -173,7 +180,7 @@ export class SpiderAbility extends Ability {
       o.pinned = false
       o.attachedTo = null
       const s = o.baseSpeed
-      o.vel = { x: Math.cos(this.gripAngle) * s, y: Math.sin(this.gripAngle) * s }
+      o.vel = { x: dm.cos(this.gripAngle) * s, y: dm.sin(this.gripAngle) * s }
     }
     this.gripped = false
     this.web = null
@@ -230,8 +237,8 @@ export class SpiderAbility extends Ability {
         const u = k / 12
         const a = a0 + u * 2.2
         const rr = p.radius * (1 - u * 0.85)
-        const x = p.pos.x + Math.cos(a) * rr
-        const y = p.pos.y + Math.sin(a) * rr
+        const x = p.pos.x + dm.cos(a) * rr
+        const y = p.pos.y + dm.sin(a) * rr
         if (k === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       }
@@ -255,14 +262,14 @@ export function drawWeb(ctx: CanvasRenderingContext2D, x: number, y: number, r: 
   for (let i = 0; i < spokes; i++) {
     const a = (i / spokes) * Math.PI * 2
     ctx.moveTo(x, y)
-    ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r)
+    ctx.lineTo(x + dm.cos(a) * r, y + dm.sin(a) * r)
   }
   for (let ring = 1; ring <= 4; ring++) {
     const rr = (r * ring) / 4
     for (let i = 0; i <= spokes; i++) {
       const a = (i / spokes) * Math.PI * 2
-      const px = x + Math.cos(a) * rr
-      const py = y + Math.sin(a) * rr
+      const px = x + dm.cos(a) * rr
+      const py = y + dm.sin(a) * rr
       if (i === 0) ctx.moveTo(px, py)
       else ctx.lineTo(px, py)
     }
@@ -309,13 +316,13 @@ export function drawSpiderLegs(
   let i = 0
   for (const side of [-1, 1]) {
     for (const off of offsets) {
-      const wobble = moving ? Math.sin(phase + i * 1.3) * 0.17 : 0
+      const wobble = moving ? dm.sin(phase + i * 1.3) * 0.17 : 0
       const a = heading + side * (Math.PI / 2) + off + wobble
       const kneeA = a - side * 0.12
-      const kx = cx + Math.cos(kneeA) * reach * 0.6
-      const ky = cy + Math.sin(kneeA) * reach * 0.6
-      const tx = cx + Math.cos(a) * reach
-      const ty = cy + Math.sin(a) * reach
+      const kx = cx + dm.cos(kneeA) * reach * 0.6
+      const ky = cy + dm.sin(kneeA) * reach * 0.6
+      const tx = cx + dm.cos(a) * reach
+      const ty = cy + dm.sin(a) * reach
       ctx.strokeStyle = '#1e2a6e'
       ctx.lineWidth = 3
       ctx.beginPath()
@@ -346,15 +353,8 @@ export function drawSpiderPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const spiderDef: CharacterDef = {
   id: 'spider',
-  name: '蜘蛛',
   nameEn: 'SPIDER',
-  tagline: '网住你，慢慢吃',
-  rules: [
-    `朝敌人吐出一张蛛网，网住后敌人原地定身 ${TRAP_DURATION} 秒`,
-    `蜘蛛爬过去扒住猎物，每口 -${BITE_DAMAGE}，咬速随时间越来越快`,
-    `命中后 ${HIT_COOLDOWN} 秒才能再吐网，落空则冷却更短`,
-    '被网住期间敌人被缴械，无法发动新的攻击（已经放出去的照样有效）',
-  ],
+  ruleValues: { trapDuration: TRAP_DURATION, biteDamage: BITE_DAMAGE, hitCooldown: HIT_COOLDOWN },
   palette: { ball: '#1b2a6b', text: '#ffffff', accent: '#5068d8' },
   mirrorPalette: { ball: '#3b0764', text: '#f3e8ff', accent: '#a855f7' },
   create: (w, b) => new SpiderAbility(w, b),

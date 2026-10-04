@@ -9,7 +9,8 @@ import { electricDef } from './electric'
 import { gojoDef } from './gojo'
 import { grenadeDef } from './grenade'
 import { hammerDef } from './hammer'
-import { hookDef } from './hook'
+import { anchorDef } from './anchor'
+import { fishhookDef } from './fishhook'
 import { laserV1Def, laserV2Def, laserV3Def } from './laser'
 import { mathBallDef } from './mathBall'
 import { orbitDef } from './orbit'
@@ -60,6 +61,18 @@ import { shotgunDef } from './shotgun'
 import { wdcDef } from './wdc'
 import { cactusDef } from './cactus'
 import { boxerDef } from './boxer'
+import { phoenixDef } from './phoenix'
+import { turtleDef } from './turtle'
+import { mirrorDef } from './mirror'
+import { thiefDef } from './thief'
+import { pufferDef } from './puffer'
+import { snowballDef } from './snowball'
+import { gravityDef } from './gravity'
+import { portalDef } from './portal'
+import { sumoDef } from './sumo'
+import { timeStopDef } from './timeStop'
+import { echoDef } from './echo'
+import { voodooDef } from './voodoo'
 import type { CharacterDef } from './types'
 
 export type { CharacterDef, Palette } from './types'
@@ -68,7 +81,8 @@ export type { CharacterDef, Palette } from './types'
 export const CHARACTERS: readonly CharacterDef[] = [
   vampireDef,
   conductorDef,
-  hookDef,
+  anchorDef,
+  fishhookDef,
   toxicSpikeDef,
   cobwebDef,
   shurikenDef,
@@ -130,6 +144,18 @@ export const CHARACTERS: readonly CharacterDef[] = [
   wdcDef,
   cactusDef,
   boxerDef,
+  phoenixDef,
+  turtleDef,
+  mirrorDef,
+  thiefDef,
+  pufferDef,
+  snowballDef,
+  gravityDef,
+  portalDef,
+  sumoDef,
+  timeStopDef,
+  echoDef,
+  voodooDef,
 ]
 
 const byId = new Map(CHARACTERS.map((c) => [c.id, c]))

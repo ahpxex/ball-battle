@@ -151,15 +151,8 @@ export function drawBlackHolePortrait(ctx: CanvasRenderingContext2D, cx: number,
 
 export const blackHoleDef: CharacterDef = {
   id: 'blackHole',
-  name: '黑洞',
   nameEn: 'BLACK HOLE',
-  tagline: '掉进去就出不来',
-  rules: [
-    `大约每 ${SPAWN_INTERVAL} 秒在场地随机位置打开一个小黑洞`,
-    '敌人中心进入黑洞后被引力困住，只能绕着中心打转',
-    `被困期间每 ${HOLE_TICK} 秒 -${HOLE_DAMAGE}，多个黑洞可叠加`,
-    `黑洞 ${HOLE_LIFETIME} 秒后坍缩，敌人才能逃脱`,
-  ],
+  ruleValues: { spawnInterval: SPAWN_INTERVAL, holeTick: HOLE_TICK, holeDamage: HOLE_DAMAGE, holeLifetime: HOLE_LIFETIME },
   palette: { ball: '#12184e', text: '#ffffff', accent: '#4f5fd6' },
   mirrorPalette: { ball: '#1e1b4b', text: '#e0e7ff', accent: '#818cf8' },
   create: (w, b) => new BlackHoleAbility(w, b),

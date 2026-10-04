@@ -1,10 +1,13 @@
+import { cloudflare } from '@cloudflare/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // The Cloudflare plugin runs the Worker (API, Durable Objects, D1) inside
+  // workerd during `vite dev` and builds it alongside the client.
+  plugins: [react(), tailwindcss(), cloudflare()],
   build: {
     rolldownOptions: {
       output: {

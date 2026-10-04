@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, distSq, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -145,11 +146,10 @@ export class SplitterAbility extends Ability {
     const e = this.enemy
     if (!this.world.combatActive || this.owner.disarmed || !e.alive) return
     const reach = PIECE_RADIUS + e.radius
-    // Splitting appends new pieces; only test the ones that existed before this pass.
-    const count = this.extras.length
-    for (let i = 0; i < count; i++) {
-      const p = this.extras[i]
-      if (p.hitCooldown > 0) continue
+    // Only the pieces that existed before this pass are tested: splitting appends new ones, and
+    // damage dealt back to us mid-pass (e.g. a mirror's reflection) can absorb pieces via rebalance().
+    for (const p of this.extras.slice()) {
+      if (p.hitCooldown > 0 || !this.extras.includes(p)) continue
       const dx = e.pos.x - p.pos.x
       const dy = e.pos.y - p.pos.y
       const d2 = dx * dx + dy * dy
@@ -170,7 +170,8 @@ export class SplitterAbility extends Ability {
   private strike(piece: Piece | null, n: Vec, at: Vec): void {
     const o = this.owner
     this.world.damage(this.enemy, SPLIT_DAMAGE, { kind: 'split', source: o, at })
-    if (!o.alive) return
+    // Damage dealt back during the hit may have absorbed this piece already.
+    if (!o.alive || (piece && !this.extras.includes(piece))) return
     const share = piece ? piece.share : this.primaryShare
     if (share < 2 || this.extras.length >= MAX_EXTRA_PIECES) return
 
@@ -193,7 +194,7 @@ export class SplitterAbility extends Ability {
       piece.born = now
     } else {
       if (o.movable) {
-        const sp = Math.hypot(o.vel.x, o.vel.y) || o.baseSpeed
+        const sp = dm.hypot(o.vel.x, o.vel.y) || o.baseSpeed
         o.vel = { x: keep.x * sp, y: keep.y * sp }
       }
       this.primaryBorn = now
@@ -219,7 +220,7 @@ export class SplitterAbility extends Ability {
     const now = this.world.time
     const ready = (born: number) => now - born >= MERGE_DELAY
     const o = this.owner
-    const touch = (a: Vec, ra: number, b: Vec) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 < (ra + PIECE_RADIUS) ** 2
+    const touch = (a: Vec, ra: number, b: Vec) => distSq(a, b) < sq(ra + PIECE_RADIUS)
 
     if (ready(this.primaryBorn)) {
       for (let i = this.extras.length - 1; i >= 0; i--) {
@@ -298,10 +299,10 @@ export class SplitterAbility extends Ability {
 /** Nudges a constant-speed velocity away from near axis-aligned headings. */
 function steerOffAxis(v: Vec, dt: number): void {
   const min = PIECE_SPEED * MIN_AXIS_RATIO
-  const k = 1 - Math.exp(-3 * dt)
+  const k = 1 - dm.exp(-3 * dt)
   if (Math.abs(v.x) < min) v.x += Math.sign(v.x || 1) * (min - Math.abs(v.x)) * k
   if (Math.abs(v.y) < min) v.y += Math.sign(v.y || 1) * (min - Math.abs(v.y)) * k
-  const sp = Math.hypot(v.x, v.y) || 1
+  const sp = dm.hypot(v.x, v.y) || 1
   v.x = (v.x / sp) * PIECE_SPEED
   v.y = (v.y / sp) * PIECE_SPEED
 }
@@ -319,9 +320,9 @@ export function drawSpikes(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.beginPath()
   for (let i = 0; i < SPIKES; i++) {
     const a = rot + (i / SPIKES) * Math.PI * 2
-    ctx.moveTo(x + Math.cos(a - half) * base, y + Math.sin(a - half) * base)
-    ctx.lineTo(x + Math.cos(a) * tip, y + Math.sin(a) * tip)
-    ctx.lineTo(x + Math.cos(a + half) * base, y + Math.sin(a + half) * base)
+    ctx.moveTo(x + dm.cos(a - half) * base, y + dm.sin(a - half) * base)
+    ctx.lineTo(x + dm.cos(a) * tip, y + dm.sin(a) * tip)
+    ctx.lineTo(x + dm.cos(a + half) * base, y + dm.sin(a + half) * base)
     ctx.closePath()
   }
   ctx.fill()
@@ -386,15 +387,8 @@ export function drawSplitterPortrait(ctx: CanvasRenderingContext2D, cx: number, 
 
 export const splitterDef: CharacterDef = {
   id: 'splitter',
-  name: '裂变',
   nameEn: 'SPLITTER',
-  tagline: '越打越多',
-  rules: [
-    `碰到敌人 -${SPLIT_DAMAGE}，然后分裂成两块，生命值对半分`,
-    `分出的碎片在场上自己弹跳，碰到敌人同样 -${SPLIT_DAMAGE} 并继续分裂（最多 ${MAX_EXTRA_PIECES + 1} 块）`,
-    `碎片分裂 ${MERGE_DELAY.toFixed(1)} 秒后再相互碰到会重新合体，生命值相加`,
-    '所有碎片的生命值加起来归零才算输',
-  ],
+  ruleValues: { splitDamage: SPLIT_DAMAGE, maxPieces: MAX_EXTRA_PIECES + 1, mergeDelay: MERGE_DELAY.toFixed(1) },
   palette: { ball: '#1e6eef', text: '#ffffff', accent: '#2b66d0' },
   mirrorPalette: { ball: '#1e3a8a', text: '#dbeafe', accent: '#60a5fa' },
   create: (w, b) => new SplitterAbility(w, b),

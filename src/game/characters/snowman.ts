@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import type { BallContact, WallBounce } from '../engine/types'
@@ -120,7 +121,7 @@ export class SnowmanAbility extends Ability {
     const from = handPoint(m, e.pos.x >= m.pos.x ? 1 : -1)
     const dx = e.pos.x - from.x
     const dy = e.pos.y - from.y
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     this.snowballs.push({ pos: from, vel: { x: (dx / d) * SNOWBALL_SPEED, y: (dy / d) * SNOWBALL_SPEED } })
     m.lastThrow = m.age
     this.world.sound('throw', 0.18, 1.5)
@@ -142,7 +143,7 @@ export class SnowmanAbility extends Ability {
         )
         continue
       }
-      if (e.alive && (e.pos.x - b.pos.x) ** 2 + (e.pos.y - b.pos.y) ** 2 < reach * reach) {
+      if (e.alive && distSq(e.pos, b.pos) < reach * reach) {
         this.world.damage(e, SNOWBALL_DAMAGE, { kind: 'snowball', source: this.owner, at: { x: b.pos.x, y: b.pos.y } })
         continue
       }
@@ -207,7 +208,7 @@ export class SnowmanAbility extends Ability {
     ctx.save()
     ctx.globalAlpha = fade
     for (const b of this.snowballs) {
-      const sp = Math.hypot(b.vel.x, b.vel.y) || 1
+      const sp = dm.hypot(b.vel.x, b.vel.y) || 1
       // Short frosty trail behind the ball.
       ctx.strokeStyle = 'rgba(224,242,254,0.35)'
       ctx.lineWidth = SNOWBALL_RADIUS * 1.4
@@ -386,15 +387,8 @@ const num = (v: number): number => +v.toFixed(2)
 
 export const snowmanDef: CharacterDef = {
   id: 'snowman',
-  name: '雪人',
   nameEn: 'SNOWMAN',
-  tagline: '走到哪儿堆到哪儿',
-  rules: [
-    `每次撞墙或撞到敌人，都会在碰撞点堆出一个雪人（最多 ${MAX_SNOWMEN} 个）`,
-    `雪人原地站 ${num(SOLID_LIFE + MELT_TIME)} 秒后融化，不挡路`,
-    `每个雪人每 ${THROW_INTERVAL} 秒朝敌人扔一个雪球`,
-    `雪球命中 -${SNOWBALL_DAMAGE}，飞到墙边就碎掉`,
-  ],
+  ruleValues: { maxSnowmen: MAX_SNOWMEN, snowmanLife: num(SOLID_LIFE + MELT_TIME), throwInterval: THROW_INTERVAL, snowballDamage: SNOWBALL_DAMAGE },
   palette: { ball: '#f4f4f4', text: '#64748b', accent: '#e5e7eb' },
   mirrorPalette: { ball: '#bcd7ee', text: '#1e3a5f', accent: '#93c5fd' },
   create: (w, b) => new SnowmanAbility(w, b),

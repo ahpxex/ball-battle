@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type OrientedBox, circleBoxContact } from '../core/geometry'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
@@ -37,7 +38,7 @@ export class HammerAbility extends Ability {
   private headBox(): OrientedBox {
     const o = this.owner.pos
     return {
-      center: { x: o.x + Math.cos(this.angle) * HEAD_DISTANCE, y: o.y + Math.sin(this.angle) * HEAD_DISTANCE },
+      center: { x: o.x + dm.cos(this.angle) * HEAD_DISTANCE, y: o.y + dm.sin(this.angle) * HEAD_DISTANCE },
       // The head's long side runs perpendicular to the arm.
       angle: this.angle + Math.PI / 2,
       halfLength: HEAD_HALF_LENGTH,
@@ -58,8 +59,8 @@ export class HammerAbility extends Ability {
     this.cooldown = HIT_COOLDOWN
     this.smashFlash = 0.15
     // Knock outward from the ball, plus the swing direction.
-    const out = { x: Math.cos(this.angle), y: Math.sin(this.angle) }
-    const swing = { x: -Math.sin(this.angle), y: Math.cos(this.angle) }
+    const out = { x: dm.cos(this.angle), y: dm.sin(this.angle) }
+    const swing = { x: -dm.sin(this.angle), y: dm.cos(this.angle) }
     const dealt = this.world.damage(e, HAMMER_DAMAGE, {
       kind: 'hammer',
       source: this.owner,
@@ -156,15 +157,8 @@ export function drawHammerPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const hammerDef: CharacterDef = {
   id: 'hammer',
-  name: '锤神',
   nameEn: 'HAMMER',
-  tagline: '一锤一个缴械',
-  rules: [
-    '一柄战锤绕着本体不停旋转',
-    `锤头砸中敌人 -${HAMMER_DAMAGE}，同一目标每 ${HIT_COOLDOWN} 秒最多一次`,
-    `被砸中的敌人缴械 ${DISARM_DURATION} 秒，期间无法发动新攻击`,
-    '锤子穿墙而过，只有本体会撞墙',
-  ],
+  ruleValues: { hammerDamage: HAMMER_DAMAGE, hitCooldown: HIT_COOLDOWN, disarmDuration: DISARM_DURATION },
   palette: { ball: '#ed362a', text: '#ffffff', accent: '#e0443a' },
   mirrorPalette: { ball: '#9f1239', text: '#ffe4e6', accent: '#f43f5e' },
   create: (w, b) => new HammerAbility(w, b),

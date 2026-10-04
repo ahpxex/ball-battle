@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { CharacterDef } from '../game/characters/registry'
 import { ARENA_BG } from '../game/render/draw'
+import { useCharacterText } from '../i18n/characters'
 
 interface PortraitProps {
   def: CharacterDef
@@ -12,6 +13,7 @@ interface PortraitProps {
 /** Static canvas illustration of a character, drawn with the in-game art. */
 export function Portrait({ def, color, size, className }: PortraitProps) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const text = useCharacterText()
 
   useEffect(() => {
     const canvas = ref.current
@@ -34,5 +36,5 @@ export function Portrait({ def, color, size, className }: PortraitProps) {
     ctx.restore()
   }, [def, color, size])
 
-  return <canvas ref={ref} style={{ width: size, height: size }} className={className} aria-label={def.name} role="img" />
+  return <canvas ref={ref} style={{ width: size, height: size }} className={className} aria-label={text.name(def.id)} role="img" />
 }

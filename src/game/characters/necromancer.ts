@@ -1,4 +1,5 @@
-import { type Vec, angleDiff, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, angleDiff, clamp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import { PIXEL_FONT } from '../render/draw'
@@ -92,18 +93,18 @@ export class NecromancerAbility extends Ability {
     const a = rng.range(0, Math.PI * 2)
     const d = rng.range(SPAWN_MIN_DIST, SPAWN_MAX_DIST)
     const pos = {
-      x: clamp(o.x + Math.cos(a) * d, SKELETON_RADIUS, s - SKELETON_RADIUS),
-      y: clamp(o.y + Math.sin(a) * d, SKELETON_RADIUS, s - SKELETON_RADIUS),
+      x: clamp(o.x + dm.cos(a) * d, SKELETON_RADIUS, s - SKELETON_RADIUS),
+      y: clamp(o.y + dm.sin(a) * d, SKELETON_RADIUS, s - SKELETON_RADIUS),
     }
     const heading = rng.range(0, Math.PI * 2)
     const e = this.enemy.pos
     this.skeletons.push({
       pos,
-      vel: { x: Math.cos(heading) * SKELETON_SPEED, y: Math.sin(heading) * SKELETON_SPEED },
+      vel: { x: dm.cos(heading) * SKELETON_SPEED, y: dm.sin(heading) * SKELETON_SPEED },
       life: SKELETON_LIFE,
       age: 0,
       reload: FIRST_ARROW,
-      aim: Math.atan2(e.y - pos.y, e.x - pos.x),
+      aim: dm.atan2(e.y - pos.y, e.x - pos.x),
     })
     this.world.effects.burst(pos, {
       count: 12,
@@ -147,7 +148,7 @@ export class NecromancerAbility extends Ability {
         k.vel.y = -Math.abs(k.vel.y)
       }
 
-      const want = Math.atan2(e.pos.y - k.pos.y, e.pos.x - k.pos.x)
+      const want = dm.atan2(e.pos.y - k.pos.y, e.pos.x - k.pos.x)
       const diff = angleDiff(k.aim, want)
       k.aim += clamp(diff, -BOW_TURN_RATE * dt, BOW_TURN_RATE * dt)
 
@@ -162,8 +163,8 @@ export class NecromancerAbility extends Ability {
   }
 
   private fire(k: Skeleton, angle: number): void {
-    const cx = Math.cos(angle)
-    const cy = Math.sin(angle)
+    const cx = dm.cos(angle)
+    const cy = dm.sin(angle)
     k.aim = angle
     // Released from the bow string, tip just past the skeleton's rim.
     const start = SKELETON_RADIUS * 0.5 + ARROW_LENGTH
@@ -185,7 +186,7 @@ export class NecromancerAbility extends Ability {
       a.pos.x += a.vel.x * dt
       a.pos.y += a.vel.y * dt
       if (a.age >= ARROW_LIFE || a.pos.x < 0 || a.pos.x > s || a.pos.y < 0 || a.pos.y > s) continue
-      if (e.alive && this.world.combatActive && (a.pos.x - e.pos.x) ** 2 + (a.pos.y - e.pos.y) ** 2 < reach * reach) {
+      if (e.alive && this.world.combatActive && distSq(a.pos, e.pos) < reach * reach) {
         this.world.damage(e, ARROW_DAMAGE, { kind: 'arrow', source: this.owner, at: { x: a.pos.x, y: a.pos.y } })
         continue
       }
@@ -202,7 +203,7 @@ export class NecromancerAbility extends Ability {
     const a = -Math.PI / 4
     ctx.save()
     ctx.globalAlpha = fade * o.opacity
-    drawSkull(ctx, o.pos.x + Math.cos(a) * r * 0.82, o.pos.y + Math.sin(a) * r * 0.82, r * 0.7, 0.25)
+    drawSkull(ctx, o.pos.x + dm.cos(a) * r * 0.82, o.pos.y + dm.sin(a) * r * 0.82, r * 0.7, 0.25)
     ctx.restore()
   }
 
@@ -212,7 +213,7 @@ export class NecromancerAbility extends Ability {
     ctx.save()
     ctx.globalAlpha = fade
     for (const a of this.arrows) {
-      drawArrow(ctx, a.pos.x, a.pos.y, Math.atan2(a.vel.y, a.vel.x), ARROW_LENGTH)
+      drawArrow(ctx, a.pos.x, a.pos.y, dm.atan2(a.vel.y, a.vel.x), ARROW_LENGTH)
     }
     for (const k of this.skeletons) {
       const pop = clamp(k.age / SPAWN_POP, 0.2, 1)
@@ -266,9 +267,9 @@ export function drawSkeletonArcher(
   const k = r / SKELETON_RADIUS
   const half = BALL_RADIUS * 0.8 * k
   const theta = 1.0
-  const rb = half / Math.sin(theta)
+  const rb = half / dm.sin(theta)
   const stringX = r * 0.7
-  const cx = stringX - rb * Math.cos(theta)
+  const cx = stringX - rb * dm.cos(theta)
   ctx.strokeStyle = mixHex('#d8d8dc', '#000000', dark)
   ctx.lineWidth = Math.max(0.6, 1 * k)
   ctx.beginPath()
@@ -374,32 +375,25 @@ export function drawNecromancerPortrait(ctx: CanvasRenderingContext2D, cx: numbe
   ]
   // One arrow in flight from the top-left archer.
   const [ax, ay] = archers[0]
-  const aim0 = Math.atan2(target.y - (cy + ay * r), target.x - (cx + ax * r))
-  drawArrow(ctx, cx + ax * r + Math.cos(aim0) * r * 2.1, cy + ay * r + Math.sin(aim0) * r * 2.1, aim0, ARROW_LENGTH * s)
+  const aim0 = dm.atan2(target.y - (cy + ay * r), target.x - (cx + ax * r))
+  drawArrow(ctx, cx + ax * r + dm.cos(aim0) * r * 2.1, cy + ay * r + dm.sin(aim0) * r * 2.1, aim0, ARROW_LENGTH * s)
   for (const [dx, dy, life] of archers) {
     const x = cx + dx * r
     const y = cy + dy * r
-    drawSkeletonArcher(ctx, x, y, SKELETON_RADIUS * s, Math.atan2(target.y - y, target.x - x), life)
+    drawSkeletonArcher(ctx, x, y, SKELETON_RADIUS * s, dm.atan2(target.y - y, target.x - x), life)
   }
   ctx.fillStyle = color
   ctx.beginPath()
   ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2)
   ctx.fill()
   const a = -Math.PI / 4
-  drawSkull(ctx, cx + Math.cos(a) * r * 0.75, cy + Math.sin(a) * r * 0.75, r * 0.65, 0.25)
+  drawSkull(ctx, cx + dm.cos(a) * r * 0.75, cy + dm.sin(a) * r * 0.75, r * 0.65, 0.25)
 }
 
 export const necromancerDef: CharacterDef = {
   id: 'necromancer',
-  name: '死灵巫师',
   nameEn: 'NECROMANCER',
-  tagline: '骷髅大军',
-  rules: [
-    `本体没有攻击，每 ${SUMMON_INTERVAL_START} 秒在身边召唤一个骷髅弓箭手（最多 ${MAX_SKELETONS} 个）`,
-    `召唤间隔随战斗时间越来越短，最快 ${SUMMON_INTERVAL_MIN} 秒一个`,
-    `骷髅只存在 ${SKELETON_LIFE} 秒，一边乱飘一边每 ${ARROW_INTERVAL} 秒朝敌人射一箭`,
-    `每支箭命中 -${ARROW_DAMAGE}`,
-  ],
+  ruleValues: { summonIntervalStart: SUMMON_INTERVAL_START, maxSkeletons: MAX_SKELETONS, summonIntervalMin: SUMMON_INTERVAL_MIN, skeletonLife: SKELETON_LIFE, arrowInterval: ARROW_INTERVAL, arrowDamage: ARROW_DAMAGE },
   palette: { ball: '#3a2070', text: '#ffffff', accent: '#7a55c9' },
   mirrorPalette: { ball: '#1f2a5c', text: '#e0e7ff', accent: '#6d82e0' },
   create: (w, b) => new NecromancerAbility(w, b),

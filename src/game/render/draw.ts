@@ -180,10 +180,10 @@ export function drawSpikeShape(ctx: CanvasRenderingContext2D, tip: Vec, left: Ve
   ctx.restore()
 }
 
-// ───────────────────────────── Hook ─────────────────────────────
+// ───────────────────────────── Anchor ─────────────────────────────
 
-/** A grappling hook pointing along +angle, ring at the back. */
-export function drawGrapplingHook(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale = 1): void {
+/** A two-pronged barbed anchor pointing along +angle, ring at the back. */
+export function drawAnchor(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale = 1): void {
   ctx.save()
   ctx.translate(x, y)
   ctx.rotate(angle)

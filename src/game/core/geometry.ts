@@ -1,3 +1,4 @@
+import * as dm from './dmath'
 import { type Vec, clamp, dist, sub, dot, cross } from './vec'
 
 export function closestPointOnSegment(p: Vec, a: Vec, b: Vec): Vec {
@@ -25,8 +26,8 @@ export interface OrientedBox {
  * circle center when overlapping, otherwise null.
  */
 export function circleBoxContact(center: Vec, radius: number, box: OrientedBox): Vec | null {
-  const c = Math.cos(box.angle)
-  const s = Math.sin(box.angle)
+  const c = dm.cos(box.angle)
+  const s = dm.sin(box.angle)
   const dx = center.x - box.center.x
   const dy = center.y - box.center.y
   // Into box-local space.
@@ -99,14 +100,14 @@ export class Polyline {
     if (d <= 0) {
       const a = pts[0]
       const angle = this.segmentAngle(0)
-      return { pos: { x: a.x + Math.cos(angle) * d, y: a.y + Math.sin(angle) * d }, angle }
+      return { pos: { x: a.x + dm.cos(angle) * d, y: a.y + dm.sin(angle) * d }, angle }
     }
     if (d >= this.length) {
       const last = pts.length - 1
       const b = pts[last]
       const angle = this.segmentAngle(last - 1)
       const over = d - this.length
-      return { pos: { x: b.x + Math.cos(angle) * over, y: b.y + Math.sin(angle) * over }, angle }
+      return { pos: { x: b.x + dm.cos(angle) * over, y: b.y + dm.sin(angle) * over }, angle }
     }
     const i = this.segmentIndex(d)
     const a = pts[i]
@@ -115,7 +116,7 @@ export class Polyline {
     const t = segLen > 1e-9 ? (d - this.cumulative[i]) / segLen : 0
     return {
       pos: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
-      angle: Math.atan2(b.y - a.y, b.x - a.x),
+      angle: dm.atan2(b.y - a.y, b.x - a.x),
     }
   }
 
@@ -127,7 +128,7 @@ export class Polyline {
     if (j >= pts.length - 1) j = i
     const a = pts[j]
     const b = pts[Math.min(j + 1, pts.length - 1)]
-    return Math.atan2(b.y - a.y, b.x - a.x)
+    return dm.atan2(b.y - a.y, b.x - a.x)
   }
 }
 

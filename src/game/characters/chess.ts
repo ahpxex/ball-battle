@@ -1,5 +1,6 @@
+import * as dm from '../core/dmath'
 import { distanceToSegment } from '../core/geometry'
-import { type Vec, clamp, dist } from '../core/vec'
+import { type Vec, clamp, cube, dist } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { predictPosition } from '../engine/predict'
 import type { CharacterDef } from './types'
@@ -165,7 +166,7 @@ export class ChessAbility extends Ability {
     switch (m.phase) {
       case 'gather': {
         const u = clamp(m.phaseT / GATHER_TIME, 0, 1)
-        const k = 1 - (1 - u) ** 3
+        const k = 1 - cube(1 - u)
         o.pos = { x: m.gatherFrom.x + (center.x - m.gatherFrom.x) * k, y: m.gatherFrom.y + (center.y - m.gatherFrom.y) * k }
         if (u >= 1) this.setPhase(m, 'aim')
         break
@@ -200,7 +201,7 @@ export class ChessAbility extends Ability {
     const leg = m.legs[m.legIndex]
     const dx = leg.to.x - o.pos.x
     const dy = leg.to.y - o.pos.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     const step = DASH_SPEED * dt
     const dir = d > 1e-6 ? { x: dx / d, y: dy / d } : { x: 0, y: 0 }
     if (d <= step) {
@@ -240,7 +241,7 @@ export class ChessAbility extends Ability {
     o.invulnerable = false
     // Ease back into motion along a random diagonal.
     const a = this.world.rng.int(0, 3) * (Math.PI / 2) + Math.PI / 4 + this.world.rng.range(-0.3, 0.3)
-    o.vel = { x: Math.cos(a) * o.baseSpeed * 0.3, y: Math.sin(a) * o.baseSpeed * 0.3 }
+    o.vel = { x: dm.cos(a) * o.baseSpeed * 0.3, y: dm.sin(a) * o.baseSpeed * 0.3 }
   }
 
   /** 0..1 visibility of the board and mode visuals. */
@@ -396,15 +397,8 @@ export function drawChessPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const chessDef: CharacterDef = {
   id: 'chess',
-  name: '象棋',
   nameEn: 'CHESS',
-  tagline: '按棋子的走法冲锋',
-  rules: [
-    '定时铺开棋盘，自己滑到中心格',
-    '挑一枚最能扫到敌人的棋子：车走直线、象走斜线、马走日字',
-    `沿走法来回冲刺 4 次，每次撞中 -${CHESS_DAMAGE} 并撞飞敌人`,
-    `冲刺期间无敌（蓝色光环），棋盘收起后冷却 ${MODE_COOLDOWN} 秒`,
-  ],
+  ruleValues: { chessDamage: CHESS_DAMAGE, modeCooldown: MODE_COOLDOWN },
   palette: { ball: '#c69b5c', text: '#ffffff', accent: '#c9a36e' },
   mirrorPalette: { ball: '#7c2d12', text: '#ffedd5', accent: '#ea580c' },
   create: (w, b) => new ChessAbility(w, b),

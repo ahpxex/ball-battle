@@ -1,5 +1,6 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
-import { type Vec, angleDiff, clamp, damp, lerpAngle } from '../core/vec'
+import { type Vec, angleDiff, clamp, damp, distSq, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import type { DamageOptions } from '../engine/types'
@@ -49,7 +50,7 @@ export class RocketAbility extends Ability {
   constructor(world: World, owner: Ball) {
     super(world, owner)
     const v = owner.vel
-    if (v.x !== 0 || v.y !== 0) this.heading = Math.atan2(v.y, v.x)
+    if (v.x !== 0 || v.y !== 0) this.heading = dm.atan2(v.y, v.x)
   }
 
   override prePhysics(dt: number): void {
@@ -80,7 +81,7 @@ export class RocketAbility extends Ability {
         }
         this.phaseTime += dt
         const e = this.enemy
-        const want = Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
+        const want = dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
         const turn = AIM_TURN_RATE * dt
         this.heading += clamp(angleDiff(this.heading, want), -turn, turn)
         if (this.phaseTime >= CHARGE_TIME) this.beginDash()
@@ -100,7 +101,7 @@ export class RocketAbility extends Ability {
   private followVelocity(dt: number): void {
     const v = this.owner.vel
     if (v.x * v.x + v.y * v.y < 1) return
-    this.heading = lerpAngle(this.heading, Math.atan2(v.y, v.x), damp(HEADING_FOLLOW, dt))
+    this.heading = lerpAngle(this.heading, dm.atan2(v.y, v.x), damp(HEADING_FOLLOW, dt))
   }
 
   private beginCharge(): void {
@@ -116,7 +117,7 @@ export class RocketAbility extends Ability {
     const o = this.owner
     this.phase = 'dash'
     this.phaseTime = 0
-    this.dashDir = { x: Math.cos(this.heading), y: Math.sin(this.heading) }
+    this.dashDir = { x: dm.cos(this.heading), y: dm.sin(this.heading) }
     // Expose the dash velocity so ball contacts this step bounce the enemy properly.
     o.vel = { x: this.dashDir.x * DASH_SPEED, y: this.dashDir.y * DASH_SPEED }
     this.world.sound('whoosh', 0.9, 0.7)
@@ -137,14 +138,14 @@ export class RocketAbility extends Ability {
     o.pos.x = clamp(nx, r, s - r)
     o.pos.y = clamp(ny, r, s - r)
     const hitWall = o.pos.x !== nx || o.pos.y !== ny
-    this.heading = Math.atan2(d.y, d.x)
+    this.heading = dm.atan2(d.y, d.x)
     this.emitExhaust()
 
     const e = this.enemy
     if (e.alive) {
       const tip = { x: o.pos.x + d.x * r * NOSE_REACH, y: o.pos.y + d.y * r * NOSE_REACH }
       const p = closestPointOnSegment(e.pos, o.pos, tip)
-      if ((p.x - e.pos.x) ** 2 + (p.y - e.pos.y) ** 2 < e.radius * e.radius) {
+      if (distSq(p, e.pos) < e.radius * e.radius) {
         this.world.damage(e, RAM_DAMAGE, {
           kind: 'ram',
           source: o,
@@ -167,7 +168,7 @@ export class RocketAbility extends Ability {
    */
   private stop(restartCooldown: boolean): void {
     const o = this.owner
-    const dir = this.phase === 'dash' ? this.dashDir : { x: Math.cos(this.heading), y: Math.sin(this.heading) }
+    const dir = this.phase === 'dash' ? this.dashDir : { x: dm.cos(this.heading), y: dm.sin(this.heading) }
     this.phase = 'cruise'
     this.phaseTime = 0
     o.pinned = false
@@ -179,8 +180,8 @@ export class RocketAbility extends Ability {
   private emitExhaust(): void {
     const o = this.owner
     const r = o.radius
-    const c = Math.cos(this.heading)
-    const sn = Math.sin(this.heading)
+    const c = dm.cos(this.heading)
+    const sn = dm.sin(this.heading)
     const back = this.heading + Math.PI
     for (const side of [-1, 1]) {
       const lx = (BOOSTER_BACK - 0.05) * r
@@ -221,8 +222,8 @@ function octagonPath(ctx: CanvasRenderingContext2D, R: number): void {
   ctx.beginPath()
   for (let i = 0; i < 8; i++) {
     const a = Math.PI / 8 + (i * Math.PI) / 4
-    const px = Math.cos(a) * R
-    const py = Math.sin(a) * R
+    const px = dm.cos(a) * R
+    const py = dm.sin(a) * R
     if (i === 0) ctx.moveTo(px, py)
     else ctx.lineTo(px, py)
   }
@@ -254,7 +255,7 @@ export function drawRocket(
   if (flame > 0) {
     for (const side of [-1, 1]) {
       const fy = side * BOOSTER_OFFSET * r
-      const flick = 0.8 + 0.2 * Math.sin(time * 70 + side * 2.1) + 0.1 * Math.sin(time * 113 + side)
+      const flick = 0.8 + 0.2 * dm.sin(time * 70 + side * 2.1) + 0.1 * dm.sin(time * 113 + side)
       const len = flame * r * flick
       const x0 = BOOSTER_BACK * r
       ctx.fillStyle = 'rgba(255,122,26,0.9)'
@@ -356,8 +357,8 @@ export function drawRocket(
   ctx.beginPath()
   for (let i = 0; i < 8; i++) {
     const a = Math.PI / 8 + (i * Math.PI) / 4
-    ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner)
-    ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R)
+    ctx.moveTo(dm.cos(a) * inner, dm.sin(a) * inner)
+    ctx.lineTo(dm.cos(a) * R, dm.sin(a) * R)
   }
   ctx.stroke()
   if (flash > 0) {
@@ -375,22 +376,15 @@ export function drawRocket(
 export function drawRocketPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
   const a = -0.62
   // Shift back along the heading so nose and flame both fit.
-  const x = cx - Math.cos(a) * r * 0.2
-  const y = cy - Math.sin(a) * r * 0.2
+  const x = cx - dm.cos(a) * r * 0.2
+  const y = cy - dm.sin(a) * r * 0.2
   drawRocket(ctx, x, y, a, r * 0.95, color, 0.7, 0.3)
 }
 
 export const rocketDef: CharacterDef = {
   id: 'rocket',
-  name: '火箭',
   nameEn: 'ROCKET',
-  tagline: '瞄准，点火！',
-  rules: [
-    '平时像普通球一样弹跳，火箭头朝着前进方向',
-    `每 ${DASH_COOLDOWN} 秒停下蓄力 ${CHARGE_TIME} 秒，把火箭头对准敌人`,
-    `随后点火沿瞄准方向高速冲刺 ${DASH_TIME} 秒，撞墙即停`,
-    `火箭头撞中敌人 -${RAM_DAMAGE} 并把对方撞飞`,
-  ],
+  ruleValues: { dashCooldown: DASH_COOLDOWN, chargeTime: CHARGE_TIME, dashTime: DASH_TIME, ramDamage: RAM_DAMAGE },
   palette: { ball: '#e73125', text: '#ffffff', accent: '#e73125' },
   mirrorPalette: { ball: '#2563eb', text: '#ffffff', accent: '#3b82f6' },
   create: (w, b) => new RocketAbility(w, b),

@@ -1,4 +1,5 @@
-import { type Vec, clamp, damp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, cube, damp, distSq, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import { predictPosition } from '../engine/predict'
@@ -104,8 +105,8 @@ export class QuicksandAbility extends Ability {
     const off = rng.range(0, AIM_SCATTER)
     const m = BALL_RADIUS
     const to = {
-      x: clamp(aim.x + Math.cos(a) * off, m, s - m),
-      y: clamp(aim.y + Math.sin(a) * off, m, s - m),
+      x: clamp(aim.x + dm.cos(a) * off, m, s - m),
+      y: clamp(aim.y + dm.sin(a) * off, m, s - m),
     }
     this.pellets.push({ from: { x: this.owner.pos.x, y: this.owner.pos.y }, to, t: 0 })
     this.world.sound('throw', 0.6, 0.8)
@@ -133,7 +134,7 @@ export class QuicksandAbility extends Ability {
     if (e.alive && this.world.combatActive) {
       for (const z of this.zones) {
         if (z.age >= ZONE_DURATION) continue
-        if ((e.pos.x - z.pos.x) ** 2 + (e.pos.y - z.pos.y) ** 2 <= ZONE_RADIUS * ZONE_RADIUS) {
+        if (distSq(e.pos, z.pos) <= ZONE_RADIUS * ZONE_RADIUS) {
           sunk = true
           break
         }
@@ -177,8 +178,8 @@ export class QuicksandAbility extends Ability {
     for (const p of this.pellets) {
       const u = p.t / PELLET_FLIGHT
       const x = p.from.x + (p.to.x - p.from.x) * u
-      const y = p.from.y + (p.to.y - p.from.y) * u - Math.sin(u * Math.PI) * PELLET_ARC
-      drawPellet(ctx, x, y, PELLET_SIZE * (1 + 0.15 * Math.sin(u * Math.PI)), u * 6)
+      const y = p.from.y + (p.to.y - p.from.y) * u - dm.sin(u * Math.PI) * PELLET_ARC
+      drawPellet(ctx, x, y, PELLET_SIZE * (1 + 0.15 * dm.sin(u * Math.PI)), u * 6)
     }
     ctx.restore()
   }
@@ -188,7 +189,7 @@ function makeSpecks(random: () => number): Speck[] {
   const specks: Speck[] = []
   const add = (radius: number, size: number, color: RGB) => {
     const a = random() * Math.PI * 2
-    specks.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius, size, color })
+    specks.push({ x: dm.cos(a) * radius, y: dm.sin(a) * radius, size, color })
   }
   for (let i = 0; i < CORE_SPECKS; i++) {
     const rr = CORE_RADIUS * Math.sqrt(random())
@@ -196,7 +197,7 @@ function makeSpecks(random: () => number): Speck[] {
     const u = random()
     // Bigger, brighter grains in the middle; olive grit towards the rim.
     const color = edge > 0.8 && u < 0.6 ? SAND_OLIVE : mix(SAND_DARK, SAND_LIGHT, random())
-    add(rr, 1 + 7 * random() ** 2 * (1 - 0.5 * edge), color)
+    add(rr, 1 + 7 * sq(random()) * (1 - 0.5 * edge), color)
   }
   for (let i = 0; i < STRAY_SPECKS; i++) {
     const rr = CORE_RADIUS + (OUTER_RADIUS - CORE_RADIUS) * random()
@@ -218,7 +219,7 @@ function rgb(c: RGB): string {
 function drawZone(ctx: CanvasRenderingContext2D, z: Zone, presence: number): void {
   const pop = Math.min(1, z.age / ZONE_POP)
   // Ease-out with a small overshoot as the pit bursts open.
-  const scale = 1 - (1 - pop) ** 3 + Math.sin(pop * Math.PI) * 0.06
+  const scale = 1 - cube(1 - pop) + dm.sin(pop * Math.PI) * 0.06
   const dying = clamp((z.age - ZONE_DURATION) / ZONE_FADE, 0, 1)
   const alpha = presence * (1 - dying)
   if (alpha <= 0 || scale <= 0) return
@@ -253,12 +254,12 @@ function drawPellet(ctx: CanvasRenderingContext2D, x: number, y: number, size: n
   for (let i = 0; i < 4; i++) {
     const a = spin + (i * Math.PI) / 2
     ctx.beginPath()
-    ctx.arc(x + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.5, 0, Math.PI * 2)
+    ctx.arc(x + dm.cos(a) * r * 0.55, y + dm.sin(a) * r * 0.55, r * 0.5, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.fillStyle = '#a39a1a'
   ctx.beginPath()
-  ctx.arc(x + Math.cos(spin + 0.8) * r * 0.3, y + Math.sin(spin + 0.8) * r * 0.3, r * 0.22, 0, Math.PI * 2)
+  ctx.arc(x + dm.cos(spin + 0.8) * r * 0.3, y + dm.sin(spin + 0.8) * r * 0.3, r * 0.22, 0, Math.PI * 2)
   ctx.fill()
 }
 
@@ -268,7 +269,7 @@ function drawRimSpecks(ctx: CanvasRenderingContext2D, cx: number, cy: number, r:
   for (const [a, size] of RIM_SPECKS) {
     const rr = r - size - 1.5
     ctx.beginPath()
-    ctx.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, size * (r / BALL_RADIUS), 0, Math.PI * 2)
+    ctx.arc(cx + dm.cos(a) * rr, cy + dm.sin(a) * rr, size * (r / BALL_RADIUS), 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -301,15 +302,8 @@ export function drawQuicksandPortrait(ctx: CanvasRenderingContext2D, cx: number,
 
 export const quicksandDef: CharacterDef = {
   id: 'quicksand',
-  name: '流沙',
   nameEn: 'QUICKSAND BALL',
-  tagline: '越挣扎陷得越深',
-  rules: [
-    `每 ${THROW_INTERVAL} 秒往敌人前进的方向扔一团沙，落地变成流沙坑`,
-    `流沙坑持续 ${ZONE_DURATION} 秒，场上最多 ${MAX_ZONES} 个`,
-    `陷进流沙的敌人速度降到 ${Math.round(SLOW_FACTOR * 100)}%，而且无法攻击`,
-    `在流沙里每 ${SAND_TICK} 秒 -${SAND_DAMAGE}，自己不受影响`,
-  ],
+  ruleValues: { throwInterval: THROW_INTERVAL, zoneDuration: ZONE_DURATION, maxZones: MAX_ZONES, slowPercent: Math.round(SLOW_FACTOR * 100), sandTick: SAND_TICK, sandDamage: SAND_DAMAGE },
   palette: { ball: '#ffca20', text: '#ffffff', accent: '#f0c020' },
   mirrorPalette: { ball: '#a16207', text: '#fef9c3', accent: '#d97706' },
   create: (w, b) => new QuicksandAbility(w, b),

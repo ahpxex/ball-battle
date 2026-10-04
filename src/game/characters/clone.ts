@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
@@ -105,7 +106,7 @@ export class CloneAbility extends Ability {
     ctx.globalAlpha = fade
     for (const g of this.ghosts) {
       const u = clamp(g.age / FADE_IN, 0, 1)
-      const shimmer = 0.9 + 0.1 * Math.sin(now * 3 + g.phase)
+      const shimmer = 0.9 + 0.1 * dm.sin(now * 3 + g.phase)
       drawGhost(ctx, g.pos.x, g.pos.y, GHOST_RADIUS * (0.7 + 0.3 * u), u * shimmer)
     }
     ctx.restore()
@@ -171,15 +172,8 @@ export function drawClonePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const cloneDef: CharacterDef = {
   id: 'clone',
-  name: '克隆',
   nameEn: 'CLONE BALL',
-  tagline: '到处都是我的影子',
-  rules: [
-    `每 ${DROP_INTERVAL} 秒在原地留下一个半透明分身（最多 ${MAX_GHOSTS} 个）`,
-    '分身一动不动，一直留到被触发为止',
-    `敌人碰到分身就会引爆它 -${GHOST_DAMAGE}，并像撞到球一样被弹开`,
-    '本体没有其他攻击',
-  ],
+  ruleValues: { dropInterval: DROP_INTERVAL, maxGhosts: MAX_GHOSTS, ghostDamage: GHOST_DAMAGE },
   palette: { ball: '#2a77fd', text: '#ffffff', accent: '#2f71f2' },
   mirrorPalette: { ball: '#1e3a8a', text: '#dbeafe', accent: '#60a5fa' },
   create: (w, b) => new CloneAbility(w, b),

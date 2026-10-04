@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import type { Vec } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
@@ -61,13 +62,13 @@ export class GojoAbility extends Ability {
       if (blues.length >= MAX_BLUE) this.orbs.splice(this.orbs.indexOf(blues[0]), 1)
     }
     // Launch away from the wall that was hit, within a random cone.
-    const base = Math.atan2(e.normal.y, e.normal.x)
+    const base = dm.atan2(e.normal.y, e.normal.x)
     const a = base + rng.range(-1.1, 1.1)
     const sp = ORBS[kind].speed
     this.orbs.push({
       kind,
       pos: { x: this.owner.pos.x, y: this.owner.pos.y },
-      vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+      vel: { x: dm.cos(a) * sp, y: dm.sin(a) * sp },
       age: 0,
       tick: BLUE_TICK_INTERVAL,
     })
@@ -92,7 +93,7 @@ export class GojoAbility extends Ability {
       else if (o.pos.y > s - r && o.vel.y > 0) o.vel.y = -o.vel.y
 
       if (e.alive && this.world.combatActive) {
-        const d = Math.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y)
+        const d = dm.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y)
         if (o.kind === 'blue') {
           if (d < BLUE_RANGE) {
             o.tick -= dt
@@ -130,7 +131,7 @@ export class GojoAbility extends Ability {
       if (o.kind !== 'blue') continue
       const dx = e.pos.x - o.pos.x
       const dy = e.pos.y - o.pos.y
-      const d = Math.hypot(dx, dy)
+      const d = dm.hypot(dx, dy)
       if (d >= BLUE_RANGE) continue
       ctx.globalAlpha = fade * (1 - d / BLUE_RANGE) * 0.9 + 0.1
       const nx = -dy / (d || 1)
@@ -139,7 +140,7 @@ export class GojoAbility extends Ability {
         ctx.beginPath()
         for (let i = 0; i <= 12; i++) {
           const u = i / 12
-          const wob = Math.sin(u * Math.PI * 3 + t * 14 + phase) * 4 * Math.sin(u * Math.PI)
+          const wob = dm.sin(u * Math.PI * 3 + t * 14 + phase) * 4 * dm.sin(u * Math.PI)
           const x = o.pos.x + dx * u + nx * wob
           const y = o.pos.y + dy * u + ny * wob
           if (i === 0) ctx.moveTo(x, y)
@@ -203,8 +204,8 @@ export function drawGojoFace(ctx: CanvasRenderingContext2D, x: number, y: number
     const a = Math.PI + (i / spikes) * Math.PI
     const tipR = r * (1.32 + (i % 2) * 0.12)
     const valleyA = a + Math.PI / spikes / 2
-    ctx.lineTo(x + Math.cos(a) * tipR, y + Math.sin(a) * tipR - r * 0.05)
-    if (i < spikes) ctx.lineTo(x + Math.cos(valleyA) * r * 0.92, y + Math.sin(valleyA) * r * 0.92)
+    ctx.lineTo(x + dm.cos(a) * tipR, y + dm.sin(a) * tipR - r * 0.05)
+    if (i < spikes) ctx.lineTo(x + dm.cos(valleyA) * r * 0.92, y + dm.sin(valleyA) * r * 0.92)
   }
   ctx.lineTo(x + r * 0.95, y - r * 0.3)
   ctx.quadraticCurveTo(x, y - r * 0.55, x - r * 0.95, y - r * 0.3)
@@ -226,15 +227,8 @@ export function drawGojoPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: 
 
 export const gojoDef: CharacterDef = {
   id: 'gojo',
-  name: '五条悟',
   nameEn: 'GOJO',
-  tagline: '苍、赫、茈',
-  rules: [
-    '每次撞墙放出一颗会自己反弹的咒力球（三选一随机）',
-    `苍（蓝）：留在场上，靠近敌人时用连线持续吸取，每次 -${BLUE_TICK_DAMAGE}`,
-    `赫（红）：撞到敌人 -${RED_DAMAGE}`,
-    `茈（紫）：较少出现、飞得慢，撞到敌人 -${PURPLE_DAMAGE}`,
-  ],
+  ruleValues: { blueTickDamage: BLUE_TICK_DAMAGE, redDamage: RED_DAMAGE, purpleDamage: PURPLE_DAMAGE },
   palette: { ball: '#fed989', text: '#ffffff', accent: '#fed989' },
   mirrorPalette: { ball: '#d6b4f5', text: '#ffffff', accent: '#c084fc' },
   create: (w, b) => new GojoAbility(w, b),

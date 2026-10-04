@@ -11,6 +11,21 @@ export type Speed = (typeof SPEEDS)[number]
 
 /** Upper bound on simulation steps per animation frame (avoids spiral of death). */
 const MAX_STEPS_PER_FRAME = 60
+/** Clock-driven playback catching up after joining late: ~10 s of battle per frame at most. */
+const MAX_CATCH_UP_STEPS_PER_FRAME = 1200
+/** Further behind than this (in steps), sounds are skipped until playback has caught up. */
+const SILENT_CATCH_UP_STEPS = 30
+
+/**
+ * Online playback: instead of free-running, the battle is pinned to a shared
+ * clock so everyone in the room sees the same moment at the same time.
+ */
+export interface BattleSchedule {
+  /** Server epoch ms at which the World starts stepping. */
+  startAt: number
+  /** Current server epoch ms (local clock corrected by the measured offset). */
+  serverNow: () => number
+}
 
 export interface HudSnapshot {
   seed: number
@@ -43,12 +58,16 @@ export class BattleController {
   private accumulator = 0
   private speed: Speed = 1
   private paused = false
+  /** Fixed steps simulated so far (clock-driven playback compares this against the shared clock). */
+  private steps = 0
+  private readonly schedule: BattleSchedule | null
   private snapshot: HudSnapshot
   private readonly listeners = new Set<() => void>()
 
-  constructor(setup: MatchSetup, sfx: Sfx) {
+  constructor(setup: MatchSetup, sfx: Sfx, schedule: BattleSchedule | null = null) {
     this.setup = setup
     this.sfx = sfx
+    this.schedule = schedule
     this.sides = resolveSides(setup)
     this.theme = { accents: [this.sides[0].palette.accent, this.sides[1].palette.accent] }
     this.world = createWorld(setup)
@@ -79,10 +98,17 @@ export class BattleController {
     return this.setup.seed
   }
 
+  /** Local playback can be paused, re-seeded and sped up; scheduled (online) playback cannot. */
+  get scheduled(): boolean {
+    return this.schedule !== null
+  }
+
   /** Restart with the same seed (identical replay) or a new one. */
   restart(seed: number = this.setup.seed): void {
+    if (this.schedule) return
     this.setup = { ...this.setup, seed }
     this.world = createWorld(this.setup)
+    this.steps = 0
     this.accumulator = 0
     this.paused = false
     this.publish()
@@ -93,12 +119,13 @@ export class BattleController {
   }
 
   togglePause(): void {
-    if (this.world.finished) return
+    if (this.world.finished || this.schedule) return
     this.paused = !this.paused
     this.publish()
   }
 
   setSpeed(speed: Speed): void {
+    if (this.schedule) return
     this.speed = speed
     this.publish()
   }
@@ -119,23 +146,40 @@ export class BattleController {
     const dt = Math.min(0.1, (now - this.lastFrame) / 1000)
     this.lastFrame = now
 
-    if (!this.paused) {
+    let silent = false
+    if (this.schedule) {
+      silent = this.stepToClock(this.schedule)
+    } else if (!this.paused) {
       this.accumulator += dt * this.speed
-      let steps = 0
-      while (this.accumulator >= FIXED_DT && steps < MAX_STEPS_PER_FRAME) {
+      let n = 0
+      while (this.accumulator >= FIXED_DT && n < MAX_STEPS_PER_FRAME) {
         this.world.step(FIXED_DT)
+        this.steps++
         this.accumulator -= FIXED_DT
-        steps++
+        n++
       }
-      if (steps === MAX_STEPS_PER_FRAME) this.accumulator = 0
+      if (n === MAX_STEPS_PER_FRAME) this.accumulator = 0
     }
 
     for (const e of this.world.drainEvents()) {
-      if (e.type === 'sound') this.sfx.play(e.sound, e.volume, e.pitch)
+      if (e.type === 'sound' && !silent) this.sfx.play(e.sound, e.volume, e.pitch)
     }
 
     this.renderer?.render(this.world, this.theme)
     this.maybePublish()
+  }
+
+  /** Advances to the step the shared clock says everyone is on; returns true while still catching up. */
+  private stepToClock(schedule: BattleSchedule): boolean {
+    const target = Math.floor((schedule.serverNow() - schedule.startAt) / 1000 / FIXED_DT)
+    const behind = target - this.steps
+    let n = 0
+    while (this.steps < target && !this.world.finished && n < MAX_CATCH_UP_STEPS_PER_FRAME) {
+      this.world.step(FIXED_DT)
+      this.steps++
+      n++
+    }
+    return behind > SILENT_CATCH_UP_STEPS
   }
 
   private buildSnapshot(): HudSnapshot {

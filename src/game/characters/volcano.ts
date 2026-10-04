@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -99,7 +100,7 @@ export class VolcanoAbility extends Ability {
     o.vel = { x: 0, y: 0 }
 
     // Random gaps that each keep at least MIN_ANGLE_GAP, summing to a full turn.
-    const weights = Array.from({ length: BOLT_COUNT }, () => -Math.log(1 - rng.next()))
+    const weights = Array.from({ length: BOLT_COUNT }, () => -dm.log(1 - rng.next()))
     const total = weights.reduce((s, w) => s + w, 0)
     const spare = Math.PI * 2 - MIN_ANGLE_GAP * BOLT_COUNT
     let angle = rng.range(0, Math.PI * 2)
@@ -116,8 +117,8 @@ export class VolcanoAbility extends Ability {
   private makeBolt(c: Vec, angle: number): LavaBolt {
     const rng = this.world.rng
     const s = this.world.size
-    const dx = Math.cos(angle)
-    const dy = Math.sin(angle)
+    const dx = dm.cos(angle)
+    const dy = dm.sin(angle)
     // Distance along the ray to the arena boundary.
     const tx = dx > 1e-9 ? (s - c.x) / dx : dx < -1e-9 ? -c.x / dx : Infinity
     const ty = dy > 1e-9 ? (s - c.y) / dy : dy < -1e-9 ? -c.y / dy : Infinity
@@ -131,7 +132,7 @@ export class VolcanoAbility extends Ability {
     }
     pts.push({ x: c.x + dx * reach, y: c.y + dy * reach })
     const cum = [0]
-    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y))
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + dm.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y))
     const length = cum[cum.length - 1]
     const embers: number[] = []
     const n = Math.max(2, Math.round(length / (BALL_RADIUS * 2.2)))
@@ -144,7 +145,7 @@ export class VolcanoAbility extends Ability {
     const o = this.owner
     const t = this.world.time
     o.vel = { x: 0, y: 0 }
-    o.pos = { x: er.center.x + Math.sin(t * 71) * SHAKE, y: er.center.y + Math.sin(t * 53 + 1.3) * SHAKE }
+    o.pos = { x: er.center.x + dm.sin(t * 71) * SHAKE, y: er.center.y + dm.sin(t * 53 + 1.3) * SHAKE }
   }
 
   private release(er: Eruption): void {
@@ -153,7 +154,7 @@ export class VolcanoAbility extends Ability {
     o.pinned = false
     o.pos = { x: er.center.x, y: er.center.y }
     const a = this.world.rng.int(0, 3) * (Math.PI / 2) + Math.PI / 4
-    o.vel = { x: Math.cos(a) * o.baseSpeed, y: Math.sin(a) * o.baseSpeed }
+    o.vel = { x: dm.cos(a) * o.baseSpeed, y: dm.sin(a) * o.baseSpeed }
   }
 
   private crumble(er: Eruption): void {
@@ -223,13 +224,13 @@ export class VolcanoAbility extends Ability {
     ctx.lineCap = 'round'
     for (const [i, b] of er.bolts.entries()) {
       const pts = grownPoints(b, b.length * g)
-      const flicker = 0.85 + 0.15 * Math.sin(time * 9 + i * 2.1)
+      const flicker = 0.85 + 0.15 * dm.sin(time * 9 + i * 2.1)
       drawLava(ctx, pts, BOLT_WIDTH * (1 - cool * 0.4), flicker, cool)
       ctx.fillStyle = cool > 0 ? '#9a3412' : '#fde047'
       for (const [j, d] of b.embers.entries()) {
         if (d > b.length * g) continue
         const p = pointAt(b, d)
-        const pulse = 0.5 + 0.5 * Math.sin(time * 7 + j * 1.7 + i)
+        const pulse = 0.5 + 0.5 * dm.sin(time * 7 + j * 1.7 + i)
         ctx.beginPath()
         ctx.arc(p.x, p.y, 1.4 + pulse * 1.4, 0, Math.PI * 2)
         ctx.fill()
@@ -242,7 +243,7 @@ export class VolcanoAbility extends Ability {
     const er = this.eruption
     if (!er?.holding) return
     const o = this.owner
-    const pulse = 0.5 + 0.5 * Math.sin(this.world.time * 10)
+    const pulse = 0.5 + 0.5 * dm.sin(this.world.time * 10)
     ctx.save()
     ctx.shadowColor = '#ff6a10'
     ctx.shadowBlur = 16 + pulse * 10
@@ -267,7 +268,7 @@ export class VolcanoAbility extends Ability {
       const r = e.radius * (0.15 + 0.8 * hash(i * 3.1 + 0.5))
       ctx.fillStyle = i % 3 === 0 ? '#fb923c' : '#ef4444'
       ctx.beginPath()
-      ctx.arc(e.pos.x + Math.cos(a) * r, e.pos.y + Math.sin(a) * r, 1.8 + hash(frame + i) * 1.4, 0, Math.PI * 2)
+      ctx.arc(e.pos.x + dm.cos(a) * r, e.pos.y + dm.sin(a) * r, 1.8 + hash(frame + i) * 1.4, 0, Math.PI * 2)
       ctx.fill()
     }
     ctx.restore()
@@ -275,7 +276,7 @@ export class VolcanoAbility extends Ability {
 }
 
 function hash(n: number): number {
-  const x = Math.sin(n * 12.9898) * 43758.5453
+  const x = dm.sin(n * 12.9898) * 43758.5453
   return x - Math.floor(x)
 }
 
@@ -311,7 +312,7 @@ function distanceToGrown(p: Vec, b: LavaBolt, d: number): number {
   let best = Infinity
   for (let i = 1; i < pts.length; i++) {
     const q = closestPointOnSegment(p, pts[i - 1], pts[i])
-    best = Math.min(best, Math.hypot(q.x - p.x, q.y - p.y))
+    best = Math.min(best, dm.hypot(q.x - p.x, q.y - p.y))
   }
   return best
 }
@@ -353,7 +354,7 @@ export function drawVolcanoPortrait(ctx: CanvasRenderingContext2D, cx: number, c
     for (let k = 1; k <= steps; k++) {
       const d = (reach * k) / steps
       const off = k === steps ? 0 : (hash(i * 9 + k) - 0.5) * r * 0.6
-      pts.push({ x: cx + Math.cos(a) * d - Math.sin(a) * off, y: cy + Math.sin(a) * d + Math.cos(a) * off })
+      pts.push({ x: cx + dm.cos(a) * d - dm.sin(a) * off, y: cy + dm.sin(a) * d + dm.cos(a) * off })
     }
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
@@ -371,15 +372,8 @@ export function drawVolcanoPortrait(ctx: CanvasRenderingContext2D, cx: number, c
 
 export const volcanoDef: CharacterDef = {
   id: 'volcano',
-  name: '火山',
   nameEn: 'VOLCANO',
-  tagline: '原地爆发，岩浆遍地',
-  rules: [
-    `每约 ${ERUPT_INTERVAL} 秒停下 ${STOP_TIME} 秒原地喷发，${BOLT_COUNT} 道岩浆裂缝延伸到场边`,
-    `岩浆持续约 ${LAVA_TIME} 秒，敌人碰到每 ${LAVA_TICK} 秒 -${LAVA_DAMAGE}，速度降到 ${Math.round(LAVA_SLOW * 100)}%`,
-    `离开岩浆后继续灼烧 ${BURN_TICKS} 次，每 ${BURN_INTERVAL} 秒 -${BURN_DAMAGE}`,
-    '被减速会推迟喷发，本体撞人没有伤害',
-  ],
+  ruleValues: { eruptInterval: ERUPT_INTERVAL, stopTime: STOP_TIME, boltCount: BOLT_COUNT, lavaTime: LAVA_TIME, lavaTick: LAVA_TICK, lavaDamage: LAVA_DAMAGE, lavaSlowPercent: Math.round(LAVA_SLOW * 100), burnTicks: BURN_TICKS, burnInterval: BURN_INTERVAL, burnDamage: BURN_DAMAGE },
   palette: { ball: '#f46c18', text: '#ffffff', accent: '#f46c18' },
   mirrorPalette: { ball: '#9a3412', text: '#ffedd5', accent: '#fb923c' },
   create: (w, b) => new VolcanoAbility(w, b),

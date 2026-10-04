@@ -1,5 +1,6 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
-import { type Vec, damp, lerpAngle } from '../core/vec'
+import { type Vec, damp, distSq, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -63,27 +64,27 @@ export class TridentAbility extends Ability {
 
   constructor(world: World, owner: Ball) {
     super(world, owner)
-    this.heading = Math.atan2(owner.vel.y, owner.vel.x)
+    this.heading = dm.atan2(owner.vel.y, owner.vel.x)
     this.angle = this.heading
     this.pos = this.restPosition()
   }
 
   private restPosition(): Vec {
     const o = this.owner.pos
-    const c = Math.cos(this.heading)
-    const s = Math.sin(this.heading)
+    const c = dm.cos(this.heading)
+    const s = dm.sin(this.heading)
     // Back along the heading plus a sideways offset to the right of travel.
     return { x: o.x - c * REST_BACK - s * REST_SIDE, y: o.y - s * REST_BACK + c * REST_SIDE }
   }
 
   private get tip(): Vec {
     const h = TRIDENT_LENGTH / 2
-    return { x: this.pos.x + Math.cos(this.angle) * h, y: this.pos.y + Math.sin(this.angle) * h }
+    return { x: this.pos.x + dm.cos(this.angle) * h, y: this.pos.y + dm.sin(this.angle) * h }
   }
 
   override update(dt: number): void {
     const v = this.owner.vel
-    if (v.x * v.x + v.y * v.y > 1) this.heading = lerpAngle(this.heading, Math.atan2(v.y, v.x), damp(FOLLOW_RATE, dt))
+    if (v.x * v.x + v.y * v.y > 1) this.heading = lerpAngle(this.heading, dm.atan2(v.y, v.x), damp(FOLLOW_RATE, dt))
     switch (this.state) {
       case 'home':
         this.updateHome(dt)
@@ -111,7 +112,7 @@ export class TridentAbility extends Ability {
     const aiming = canThrow && this.world.fightTime >= this.nextThrowAt - AIM_TIME
     if (aiming) {
       this.aimTimer += dt
-      const aim = Math.atan2(e.pos.y - this.pos.y, e.pos.x - this.pos.x)
+      const aim = dm.atan2(e.pos.y - this.pos.y, e.pos.x - this.pos.x)
       this.angle = lerpAngle(this.angle, aim, damp(AIM_RATE, dt))
       if (this.aimTimer >= AIM_TIME && this.world.fightTime >= this.nextThrowAt) this.throw()
       return
@@ -124,10 +125,10 @@ export class TridentAbility extends Ability {
     const e = this.enemy.pos
     const dx = e.x - this.pos.x
     const dy = e.y - this.pos.y
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     this.dir = { x: dx / d, y: dy / d }
     this.motion = this.dir
-    this.angle = Math.atan2(dy, dx)
+    this.angle = dm.atan2(dy, dx)
     this.origin = { x: this.pos.x, y: this.pos.y }
     this.state = 'flying'
     this.aimTimer = 0
@@ -137,7 +138,7 @@ export class TridentAbility extends Ability {
 
   private updateFlight(dt: number): void {
     const before = this.tip
-    const travelled = Math.hypot(this.pos.x - this.origin.x, this.pos.y - this.origin.y)
+    const travelled = dm.hypot(this.pos.x - this.origin.x, this.pos.y - this.origin.y)
     const step = Math.min(THROW_SPEED * dt, MAX_RANGE - travelled)
     this.pos.x += this.dir.x * step
     this.pos.y += this.dir.y * step
@@ -148,7 +149,7 @@ export class TridentAbility extends Ability {
       // Swept test so the tip can never skip past the target.
       const p = closestPointOnSegment(e.pos, before, after)
       const reach = e.radius + HIT_REACH
-      if ((p.x - e.pos.x) ** 2 + (p.y - e.pos.y) ** 2 < reach * reach) {
+      if (distSq(p, e.pos) < reach * reach) {
         const dealt = this.world.damage(e, TRIDENT_DAMAGE, { kind: 'trident', source: this.owner, at: p, shake: HIT_SHAKE })
         if (dealt > 0) this.stick(e)
         else this.hang()
@@ -163,11 +164,11 @@ export class TridentAbility extends Ability {
     const t = this.tip
     const ox = t.x - e.pos.x
     const oy = t.y - e.pos.y
-    const d = Math.hypot(ox, oy) || 1
+    const d = dm.hypot(ox, oy) || 1
     const depth = e.radius * EMBED_DEPTH
     const tip = { x: e.pos.x + (ox / d) * depth, y: e.pos.y + (oy / d) * depth }
     const h = TRIDENT_LENGTH / 2
-    this.pos = { x: tip.x - Math.cos(this.angle) * h, y: tip.y - Math.sin(this.angle) * h }
+    this.pos = { x: tip.x - dm.cos(this.angle) * h, y: tip.y - dm.sin(this.angle) * h }
     this.stuckOffset = { x: this.pos.x - e.pos.x, y: this.pos.y - e.pos.y }
     this.stuckIn = e
     this.state = 'stuck'
@@ -196,7 +197,7 @@ export class TridentAbility extends Ability {
     const home = this.restPosition()
     const dx = home.x - this.pos.x
     const dy = home.y - this.pos.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     const step = RETURN_SPEED * dt
     if (d <= step) {
       this.pos = home
@@ -208,7 +209,7 @@ export class TridentAbility extends Ability {
     this.pos.x += (dx / d) * step
     this.pos.y += (dy / d) * step
     // Pulled back butt-first, settling into the resting pose on arrival.
-    const away = Math.atan2(-dy, -dx)
+    const away = dm.atan2(-dy, -dx)
     const target = d < BALL_RADIUS * 3 ? this.heading : away
     this.angle = lerpAngle(this.angle, target, damp(12, dt))
   }
@@ -364,15 +365,8 @@ export function drawTridentPortrait(ctx: CanvasRenderingContext2D, cx: number, c
 
 export const tridentDef: CharacterDef = {
   id: 'trident',
-  name: '三叉戟',
   nameEn: 'TRIDENT',
-  tagline: '一戟穿心',
-  rules: [
-    `三叉戟悬在身旁，每 ${THROW_INTERVAL} 秒对准敌人当前位置掷出一次`,
-    `直线飞行，最远 ${MAX_RANGE}，命中敌人 -${TRIDENT_DAMAGE}`,
-    `命中后插在敌人身上 ${STICK_TIME} 秒，再飞回主人身边`,
-    '只瞄准不追踪，敌人走位就能躲开',
-  ],
+  ruleValues: { throwInterval: THROW_INTERVAL, maxRange: MAX_RANGE, tridentDamage: TRIDENT_DAMAGE, stickTime: STICK_TIME },
   palette: { ball: '#00b8c0', text: '#ffffff', accent: '#1ab5ba' },
   mirrorPalette: { ball: '#0f766e', text: '#ccfbf1', accent: '#2dd4bf' },
   create: (w, b) => new TridentAbility(w, b),

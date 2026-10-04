@@ -1,5 +1,6 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
-import { type Vec, clamp, damp, lerpAngle } from '../core/vec'
+import { type Vec, clamp, damp, distSq, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -40,7 +41,7 @@ const BOW_TURN_RATE = 12
 
 /** Seconds between shots at combat time `t`. */
 export function fireInterval(t: number): number {
-  return Math.max(MIN_INTERVAL, BASE_INTERVAL * INTERVAL_DECAY ** Math.max(0, t - RAMP_START))
+  return Math.max(MIN_INTERVAL, BASE_INTERVAL * dm.pow(INTERVAL_DECAY, Math.max(0, t - RAMP_START)))
 }
 
 interface Arrow {
@@ -67,13 +68,13 @@ export class ArcherAbility extends Ability {
   constructor(world: World, owner: Ball) {
     super(world, owner)
     const e = world.opponentOf(owner)
-    this.bowAngle = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
+    this.bowAngle = dm.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
   }
 
   private get aimAngle(): number {
     const o = this.owner.pos
     const e = this.enemy.pos
-    return Math.atan2(e.y - o.y, e.x - o.x)
+    return dm.atan2(e.y - o.y, e.x - o.x)
   }
 
   override update(dt: number): void {
@@ -98,7 +99,7 @@ export class ArcherAbility extends Ability {
     const o = this.owner
     const angle = this.aimAngle
     this.bowAngle = angle
-    const dir = { x: Math.cos(angle), y: Math.sin(angle) }
+    const dir = { x: dm.cos(angle), y: dm.sin(angle) }
     // Released from full draw: the tail leaves the ball centre.
     if (this.arrows.length >= MAX_ARROWS) this.arrows.shift()
     const arrow: Arrow = { head: { x: o.pos.x + dir.x * ARROW_LENGTH, y: o.pos.y + dir.y * ARROW_LENGTH }, dir, age: 0 }
@@ -117,7 +118,7 @@ export class ArcherAbility extends Ability {
     if (!e.alive || !this.world.combatActive) return false
     const at = closestPointOnSegment(e.pos, from, arrow.head)
     const reach = e.radius + ARROW_HIT_SLACK
-    if ((at.x - e.pos.x) ** 2 + (at.y - e.pos.y) ** 2 > reach * reach) return false
+    if (distSq(at, e.pos) > reach * reach) return false
     this.world.damage(e, ARROW_DAMAGE, { kind: 'arrow', source: this.owner, at })
     arrow.age = -1
     return true
@@ -172,7 +173,7 @@ export class ArcherAbility extends Ability {
     ctx.globalAlpha = fade
     for (const a of this.arrows) {
       const tail = { x: a.head.x - a.dir.x * ARROW_LENGTH, y: a.head.y - a.dir.y * ARROW_LENGTH }
-      drawArrow(ctx, tail.x, tail.y, Math.atan2(a.dir.y, a.dir.x), BALL_RADIUS, true)
+      drawArrow(ctx, tail.x, tail.y, dm.atan2(a.dir.y, a.dir.x), BALL_RADIUS, true)
     }
     ctx.restore()
   }
@@ -317,15 +318,8 @@ export function drawArcherPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const archerDef: CharacterDef = {
   id: 'archer',
-  name: '弓箭手',
   nameEn: 'ARCHER V2',
-  tagline: '箭雨越下越密',
-  rules: [
-    '弓始终瞄准敌人当前所在的位置，射出直飞的箭',
-    `每支箭命中 -${ARROW_DAMAGE}，飞到墙上就会折断`,
-    `开战约 ${FIRST_SHOT} 秒射出第一箭，起初每 ${BASE_INTERVAL} 秒一箭`,
-    `${RAMP_START} 秒后射速越来越快，最终每 ${MIN_INTERVAL} 秒一箭，连成箭流`,
-  ],
+  ruleValues: { arrowDamage: ARROW_DAMAGE, firstShot: FIRST_SHOT, baseInterval: BASE_INTERVAL, rampStart: RAMP_START, minInterval: MIN_INTERVAL },
   palette: { ball: '#8b52ec', text: '#ffffff', accent: '#8256e4' },
   mirrorPalette: { ball: '#5b21b6', text: '#ede9fe', accent: '#a78bfa' },
   create: (w, b) => new ArcherAbility(w, b),

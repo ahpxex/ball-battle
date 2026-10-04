@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, cube, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import { roundRectPath } from '../render/draw'
@@ -98,7 +99,7 @@ export class BomberAbility extends Ability {
     const rng = this.world.rng
     const dx = e.pos.x - pos.x
     const dy = e.pos.y - pos.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     const base = clamp(MAX_DAMAGE - (DAMAGE_FALLOFF * d) / BALL_RADIUS, MIN_DAMAGE, MAX_DAMAGE)
     const dmg = Math.round(base + rng.range(-DAMAGE_JITTER, DAMAGE_JITTER))
     let nx: number
@@ -108,8 +109,8 @@ export class BomberAbility extends Ability {
       ny = dy / d
     } else {
       const a = rng.range(0, Math.PI * 2)
-      nx = Math.cos(a)
-      ny = Math.sin(a)
+      nx = dm.cos(a)
+      ny = dm.sin(a)
     }
     this.world.damage(e, dmg, { kind: 'bomb', source: this.owner, at: { x: e.pos.x, y: e.pos.y }, knock: { x: nx * KNOCK, y: ny * KNOCK } })
   }
@@ -126,7 +127,7 @@ export class BomberAbility extends Ability {
       // The hand jumps in quarter-second ticks, one full turn over the fuse.
       const ticks = Math.floor(b.age * 4)
       const hand = -Math.PI / 2 + (ticks / (FUSE_TIME * 4)) * Math.PI * 2
-      const warn = FUSE_TIME - b.age < WARN_TIME && Math.sin(time * 30) > 0
+      const warn = FUSE_TIME - b.age < WARN_TIME && dm.sin(time * 30) > 0
       drawBomb(ctx, b.pos.x, b.pos.y, BOMB_WIDTH * s, hand, warn)
     }
     ctx.restore()
@@ -166,7 +167,7 @@ export class BomberAbility extends Ability {
 function easeOutBack(t: number): number {
   const c1 = 1.70158
   const c3 = c1 + 1
-  return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2
+  return 1 + c3 * cube(t - 1) + c1 * sq(t - 1)
 }
 
 /** One dynamite stick lying horizontally, its paper end facing `outward` (±1). */
@@ -269,8 +270,8 @@ export function drawBomb(ctx: CanvasRenderingContext2D, x: number, y: number, w:
   ctx.beginPath()
   for (let k = 0; k < 4; k++) {
     const a = (k * Math.PI) / 2
-    ctx.moveTo(Math.cos(a) * dr * 0.72, boxY + Math.sin(a) * dr * 0.72)
-    ctx.lineTo(Math.cos(a) * dr * 0.92, boxY + Math.sin(a) * dr * 0.92)
+    ctx.moveTo(dm.cos(a) * dr * 0.72, boxY + dm.sin(a) * dr * 0.72)
+    ctx.lineTo(dm.cos(a) * dr * 0.92, boxY + dm.sin(a) * dr * 0.92)
   }
   ctx.stroke()
   ctx.strokeStyle = '#111827'
@@ -278,7 +279,7 @@ export function drawBomb(ctx: CanvasRenderingContext2D, x: number, y: number, w:
   ctx.lineCap = 'round'
   ctx.beginPath()
   ctx.moveTo(0, boxY)
-  ctx.lineTo(Math.cos(hand) * dr * 0.78, boxY + Math.sin(hand) * dr * 0.78)
+  ctx.lineTo(dm.cos(hand) * dr * 0.78, boxY + dm.sin(hand) * dr * 0.78)
   ctx.stroke()
   ctx.fillStyle = '#d02020'
   ctx.beginPath()
@@ -298,15 +299,8 @@ export function drawBomberPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const bomberDef: CharacterDef = {
   id: 'bomber',
-  name: '爆破者',
   nameEn: 'BOMBER',
-  tagline: '滴答滴答，全场开花',
-  rules: [
-    `每 ${PLANT_COOLDOWN} 秒在脚下放一颗定时炸弹（被定身、抓住或缴械时暂停计时）`,
-    `炸弹 ${FUSE_TIME} 秒后爆炸，场上最多同时 ${MAX_BOMBS} 颗`,
-    `爆炸波及全场：离得越近伤害越高，最多 -${MAX_DAMAGE}，最远也有 -${MIN_DAMAGE}`,
-    '爆炸会把敌人炸飞，但不会伤到自己',
-  ],
+  ruleValues: { plantCooldown: PLANT_COOLDOWN, fuseTime: FUSE_TIME, maxBombs: MAX_BOMBS, maxDamage: MAX_DAMAGE, minDamage: MIN_DAMAGE },
   palette: { ball: '#0c4424', text: '#ffffff', accent: '#1f7a45' },
   mirrorPalette: { ball: '#4d7c0f', text: '#ecfccb', accent: '#84cc16' },
   create: (w, b) => new BomberAbility(w, b),

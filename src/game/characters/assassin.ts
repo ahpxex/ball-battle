@@ -1,9 +1,11 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment } from '../core/geometry'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS, BASE_SPEED } from '../engine/constants'
 import type { World } from '../engine/World'
 import type { CharacterDef } from './types'
+import { distSq, sq } from '../core/vec'
 
 /** Base spin rate of the sword (degrees per second, clockwise on screen). */
 export const SPIN_DEG_PER_SEC = 700
@@ -62,13 +64,13 @@ export class AssassinAbility extends Ability {
     if (!e.alive) return
     const o = this.owner.pos
     const R = this.owner.radius
-    const dx = Math.cos(this.angle)
-    const dy = Math.sin(this.angle)
+    const dx = dm.cos(this.angle)
+    const dy = dm.sin(this.angle)
     const a = { x: o.x + dx * HIT_START * R, y: o.y + dy * HIT_START * R }
     const b = { x: o.x + dx * TIP_AT * R, y: o.y + dy * TIP_AT * R }
     const at = closestPointOnSegment(e.pos, a, b)
     const reach = e.radius + HIT_SLACK
-    if ((at.x - e.pos.x) ** 2 + (at.y - e.pos.y) ** 2 > reach * reach) return
+    if (distSq(at, e.pos) > reach * reach) return
     this.cooldown = SWORD_COOLDOWN
     this.world.damage(e, SWORD_DAMAGE, { kind: 'sword', source: this.owner, at })
   }
@@ -92,8 +94,8 @@ function drawSwordTrail(ctx: CanvasRenderingContext2D, cx: number, cy: number, a
   ctx.beginPath()
   for (let i = 0; i <= steps; i++) {
     const a = angle - TRAIL_ARC + (i / steps) * TRAIL_ARC
-    const px = cx + Math.cos(a) * outer
-    const py = cy + Math.sin(a) * outer
+    const px = cx + dm.cos(a) * outer
+    const py = cy + dm.sin(a) * outer
     if (i === 0) ctx.moveTo(px, py)
     else ctx.lineTo(px, py)
   }
@@ -101,8 +103,8 @@ function drawSwordTrail(ctx: CanvasRenderingContext2D, cx: number, cy: number, a
     const u = i / steps
     const a = angle - TRAIL_ARC + u * TRAIL_ARC
     // Crescent profile: zero at the tail, widest just behind the blade.
-    const inner = outer - maxThick * Math.sin(u * Math.PI * 0.5) ** 2
-    ctx.lineTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner)
+    const inner = outer - maxThick * sq(dm.sin(u * Math.PI * 0.5))
+    ctx.lineTo(cx + dm.cos(a) * inner, cy + dm.sin(a) * inner)
   }
   ctx.closePath()
   ctx.fill()
@@ -189,15 +191,8 @@ export function drawAssassinPortrait(ctx: CanvasRenderingContext2D, cx: number, 
 
 export const assassinDef: CharacterDef = {
   id: 'assassin',
-  name: '刺客',
   nameEn: 'ASSASSIN',
-  tagline: '越转越快的剑',
-  rules: [
-    '一把长剑从中心向外伸出，顺时针不停旋转',
-    `剑刃扫中敌人 -${SWORD_DAMAGE}，同一目标每 ${SWORD_COOLDOWN} 秒最多一次`,
-    `转速（初始 ${SPIN_DEG_PER_SEC}°/秒）和移动速度随时间不断增长，最高 ${MAX_GROWTH} 倍`,
-    '被缴械或定身时长剑停转，无法伤人',
-  ],
+  ruleValues: { swordDamage: SWORD_DAMAGE, swordCooldown: SWORD_COOLDOWN, spinDegPerSec: SPIN_DEG_PER_SEC, maxGrowth: MAX_GROWTH },
   palette: { ball: '#ec362c', text: '#ffffff', accent: '#e03833' },
   mirrorPalette: { ball: '#7f1d1d', text: '#fee2e2', accent: '#f87171' },
   create: (w, b) => new AssassinAbility(w, b),

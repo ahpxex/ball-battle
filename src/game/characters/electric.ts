@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import type { BallContact } from '../engine/types'
@@ -59,7 +60,7 @@ export class ElectricAbility extends Ability {
   override renderUnderBall(ctx: CanvasRenderingContext2D): void {
     const o = this.owner
     // Pulsing golden glow with crackling sparks.
-    const pulse = 0.5 + 0.5 * Math.sin(this.auraSeed * 2.3) * Math.sin(this.auraSeed * 0.9 + 1)
+    const pulse = 0.5 + 0.5 * dm.sin(this.auraSeed * 2.3) * dm.sin(this.auraSeed * 0.9 + 1)
     const r = o.radius * (1.4 + 0.5 * pulse)
     const g = ctx.createRadialGradient(o.pos.x, o.pos.y, o.radius * 0.8, o.pos.x, o.pos.y, r)
     g.addColorStop(0, 'rgba(250,204,21,0.28)')
@@ -98,18 +99,18 @@ function drawSparks(ctx: CanvasRenderingContext2D, cx: number, cy: number, r0: n
     // Deterministic pseudo-random positions that change a few times per second.
     const k = Math.floor(t * 12) * 31 + i * 97
     const h = (n: number) => {
-      const x = Math.sin(n * 12.9898 + k * 78.233) * 43758.5453
+      const x = dm.sin(n * 12.9898 + k * 78.233) * 43758.5453
       return x - Math.floor(x)
     }
     const a = h(1) * Math.PI * 2
     const rr = r0 + (r1 - r0) * h(2)
     const len = 4 + h(3) * 7
-    const x = cx + Math.cos(a) * rr
-    const y = cy + Math.sin(a) * rr
+    const x = cx + dm.cos(a) * rr
+    const y = cy + dm.sin(a) * rr
     const dir = a + Math.PI / 2 + (h(4) - 0.5)
     ctx.moveTo(x, y)
-    ctx.lineTo(x + Math.cos(dir) * len * 0.5 + (h(5) - 0.5) * 3, y + Math.sin(dir) * len * 0.5 + (h(6) - 0.5) * 3)
-    ctx.lineTo(x + Math.cos(dir) * len, y + Math.sin(dir) * len)
+    ctx.lineTo(x + dm.cos(dir) * len * 0.5 + (h(5) - 0.5) * 3, y + dm.sin(dir) * len * 0.5 + (h(6) - 0.5) * 3)
+    ctx.lineTo(x + dm.cos(dir) * len, y + dm.sin(dir) * len)
   }
   ctx.stroke()
   ctx.restore()
@@ -132,15 +133,8 @@ export function drawElectricPortrait(ctx: CanvasRenderingContext2D, cx: number, 
 
 export const electricDef: CharacterDef = {
   id: 'electric',
-  name: '雷电',
   nameEn: 'ELECTRIC',
-  tagline: '碰一下就麻了',
-  rules: [
-    `本体撞到敌人时放电，敌人原地麻痹 ${STUN_DURATION} 秒`,
-    `麻痹期间每 0.5 秒 -${SHOCK_DAMAGE}，共 ${SHOCK_TICKS} 次`,
-    `每次放电后 ${SHOCK_COOLDOWN} 秒才能再放`,
-    '麻痹的敌人仍然可以发动武器',
-  ],
+  ruleValues: { stunDuration: STUN_DURATION, shockDamage: SHOCK_DAMAGE, shockTicks: SHOCK_TICKS, shockCooldown: SHOCK_COOLDOWN },
   palette: { ball: '#f5d129', text: '#ffffff', accent: '#facc15' },
   mirrorPalette: { ball: '#a16207', text: '#fef9c3', accent: '#eab308' },
   create: (w, b) => new ElectricAbility(w, b),

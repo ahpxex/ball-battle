@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, angleDiff, angleOf, clamp, damp, fromAngle, len, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
@@ -99,7 +100,7 @@ export class VampireAbility extends Ability {
     this.prey = target
     o.pinned = true
     o.attachedTo = target
-    this.latchAngle = Math.atan2(o.pos.y - target.pos.y, o.pos.x - target.pos.x)
+    this.latchAngle = dm.atan2(o.pos.y - target.pos.y, o.pos.x - target.pos.x)
     this.latchTimer = LATCH_DURATION
     this.biteTimer = 0.1
     this.crawlDir = this.world.rng.sign()
@@ -127,14 +128,14 @@ export class VampireAbility extends Ability {
     const s = this.world.size
     const r = o.radius
     const reach = prey.radius + r - 4
-    let x = prey.pos.x + Math.cos(this.latchAngle) * reach
-    let y = prey.pos.y + Math.sin(this.latchAngle) * reach
+    let x = prey.pos.x + dm.cos(this.latchAngle) * reach
+    let y = prey.pos.y + dm.sin(this.latchAngle) * reach
     if (x < r || x > s - r || y < r || y > s - r) {
       // Crawl around towards the open side instead of clipping into a wall.
-      const toCenter = Math.atan2(s / 2 - prey.pos.y, s / 2 - prey.pos.x)
+      const toCenter = dm.atan2(s / 2 - prey.pos.y, s / 2 - prey.pos.x)
       this.latchAngle = lerpAngle(this.latchAngle, toCenter, damp(12, dt))
-      x = clamp(prey.pos.x + Math.cos(this.latchAngle) * reach, r, s - r)
-      y = clamp(prey.pos.y + Math.sin(this.latchAngle) * reach, r, s - r)
+      x = clamp(prey.pos.x + dm.cos(this.latchAngle) * reach, r, s - r)
+      y = clamp(prey.pos.y + dm.sin(this.latchAngle) * reach, r, s - r)
     }
     o.pos.x = x
     o.pos.y = y
@@ -146,8 +147,8 @@ export class VampireAbility extends Ability {
   private bite(prey: Ball): void {
     const o = this.owner
     const at = {
-      x: o.pos.x + Math.cos(this.facing) * o.radius,
-      y: o.pos.y + Math.sin(this.facing) * o.radius,
+      x: o.pos.x + dm.cos(this.facing) * o.radius,
+      y: o.pos.y + dm.sin(this.facing) * o.radius,
     }
     const dealt = this.world.damage(prey, BITE_DAMAGE, { kind: 'bite', source: o, at })
     if (dealt > 0) {
@@ -162,7 +163,7 @@ export class VampireAbility extends Ability {
     const fangLen = this.prey ? 7 + this.biteFlash * 30 : 10
     drawFangs(ctx, o.pos.x, o.pos.y, o.radius, this.facing, fangLen)
     if (this.prey) {
-      const pulse = 0.55 + 0.35 * Math.sin(this.world.time * 18)
+      const pulse = 0.55 + 0.35 * dm.sin(this.world.time * 18)
       ctx.save()
       ctx.strokeStyle = `rgba(125,190,255,${pulse})`
       ctx.lineWidth = 3
@@ -186,15 +187,8 @@ export function drawVampirePortrait(ctx: CanvasRenderingContext2D, cx: number, c
 
 export const vampireDef: CharacterDef = {
   id: 'vampire',
-  name: '吸血鬼',
   nameEn: 'VAMPIRE',
-  tagline: '咬住就不松口',
-  rules: [
-    `獠牙朝前撞到敌人时咬住对方，跟随移动 ${LATCH_DURATION} 秒`,
-    `每 ${BITE_INTERVAL} 秒吸血一次：敌人 -${BITE_DAMAGE}，自己 +${BITE_DAMAGE}`,
-    '回血没有上限，血量可以超过 100',
-    '被强力击退会被甩开',
-  ],
+  ruleValues: { latchDuration: LATCH_DURATION, biteInterval: BITE_INTERVAL, biteDamage: BITE_DAMAGE },
   palette: { ball: '#8e1b1b', text: '#ffffff', accent: '#c62828' },
   mirrorPalette: { ball: '#4a0d1f', text: '#fecdd3', accent: '#e11d48' },
   create: (w, b) => new VampireAbility(w, b),

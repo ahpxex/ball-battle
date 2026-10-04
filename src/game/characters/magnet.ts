@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, angleDiff, clamp, fromAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
@@ -107,7 +108,7 @@ export class MagnetAbility extends Ability {
     const d = Math.sqrt(rng.next()) * SPAWN_SPREAD
     const m = BAR_LENGTH / 2
     this.bars.push({
-      pos: { x: clamp(o.x + Math.cos(a) * d, m, s - m), y: clamp(o.y + Math.sin(a) * d, m, s - m) },
+      pos: { x: clamp(o.x + dm.cos(a) * d, m, s - m), y: clamp(o.y + dm.sin(a) * d, m, s - m) },
       angle: rng.range(0, Math.PI * 2),
       age: 0,
       linked: false,
@@ -126,7 +127,7 @@ export class MagnetAbility extends Ability {
       let bestD = PAIR_RANGE
       for (const other of free) {
         if (other === b) continue
-        const d = Math.hypot(other.pos.x - b.pos.x, other.pos.y - b.pos.y)
+        const d = dm.hypot(other.pos.x - b.pos.x, other.pos.y - b.pos.y)
         if (d < bestD) {
           bestD = d
           best = other
@@ -143,14 +144,14 @@ export class MagnetAbility extends Ability {
       const b = p.bar
       const dx = p.to.x - b.pos.x
       const dy = p.to.y - b.pos.y
-      const d = Math.hypot(dx, dy)
+      const d = dm.hypot(dx, dy)
       if (d < 1e-6) continue
       const step = Math.min(d, p.speed * dt)
       b.pos.x = clamp(b.pos.x + (dx / d) * step, m, s - m)
       b.pos.y = clamp(b.pos.y + (dy / d) * step, m, s - m)
       if (p.align) {
         // Turn the bar's long axis onto the line to its partner (either polarity).
-        const axis = Math.atan2(dy, dx)
+        const axis = dm.atan2(dy, dx)
         const d0 = angleDiff(b.angle, axis)
         const d1 = angleDiff(b.angle, axis + Math.PI)
         const turn = Math.abs(d0) <= Math.abs(d1) ? d0 : d1
@@ -166,7 +167,7 @@ export class MagnetAbility extends Ability {
       let bestD = LINK_DISTANCE
       for (const b of this.bars) {
         if (b === a || b.linked) continue
-        const d = Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y)
+        const d = dm.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y)
         if (d <= bestD) {
           bestD = d
           best = b
@@ -181,7 +182,7 @@ export class MagnetAbility extends Ability {
     const mid = { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 }
     const dx = b.pos.x - a.pos.x
     const dy = b.pos.y - a.pos.y
-    const axis = Math.hypot(dx, dy) > 1e-6 ? Math.atan2(dy, dx) : a.angle
+    const axis = dm.hypot(dx, dy) > 1e-6 ? dm.atan2(dy, dx) : a.angle
     // Both bars share one heading; pick the polarity needing the least rotation.
     const cost = (t: number) => Math.abs(angleDiff(a.angle, t)) + Math.abs(angleDiff(b.angle, t))
     const heading = cost(axis) <= cost(axis + Math.PI) ? axis : axis + Math.PI
@@ -222,7 +223,7 @@ export class MagnetAbility extends Ability {
     if (!e.alive) return
     const dx = e.pos.x - at.x
     const dy = e.pos.y - at.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     const dmg = blastDamage(d)
     if (dmg < 1) return
     const dir = d > 1e-6 ? { x: dx / d, y: dy / d } : fromAngle(this.world.rng.range(0, Math.PI * 2))
@@ -246,13 +247,13 @@ export class MagnetAbility extends Ability {
     for (const b of this.bars) {
       const g = clamp(b.age / GROW_TIME, 0, 1)
       // Slight overshoot as the bar pops in.
-      const scale = g < 1 ? Math.sin(g * Math.PI * 0.5) * (1 + 0.15 * Math.sin(g * Math.PI)) : 1
+      const scale = g < 1 ? dm.sin(g * Math.PI * 0.5) * (1 + 0.15 * dm.sin(g * Math.PI)) : 1
       drawBarMagnet(ctx, b.pos.x, b.pos.y, b.angle, BAR_LENGTH * scale, BAR_WIDTH * scale)
     }
     for (const l of this.links) {
       const u = l.t / FUSE_TIME
       // Bars glow hotter as the fuse runs down.
-      const pulse = u * (0.5 + 0.5 * Math.sin(l.t * (18 + 30 * u)))
+      const pulse = u * (0.5 + 0.5 * dm.sin(l.t * (18 + 30 * u)))
       if (pulse > 0.02) {
         ctx.save()
         ctx.globalAlpha = fade * pulse * 0.6
@@ -301,7 +302,7 @@ export class MagnetAbility extends Ability {
 }
 
 function hash(n: number): number {
-  const x = Math.sin(n * 12.9898) * 43758.5453
+  const x = dm.sin(n * 12.9898) * 43758.5453
   return x - Math.floor(x)
 }
 
@@ -309,7 +310,7 @@ function hash(n: number): number {
 function drawCrackle(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, seed: number): void {
   const dx = to.x - from.x
   const dy = to.y - from.y
-  const length = Math.hypot(dx, dy) || 1
+  const length = dm.hypot(dx, dy) || 1
   const nx = -dy / length
   const ny = dx / length
   const segs = 6
@@ -396,8 +397,8 @@ export function drawMagnetPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
   const wid = r * 0.4
   // A linked pair crackling at the top right.
   const ang = -0.5
-  const ux = Math.cos(ang) * len * 0.5
-  const uy = Math.sin(ang) * len * 0.5
+  const ux = dm.cos(ang) * len * 0.5
+  const uy = dm.sin(ang) * len * 0.5
   const mx = cx + r * 1.1
   const my = cy - r * 1.4
   drawBarMagnet(ctx, mx - ux, my - uy, ang, len, wid)
@@ -419,15 +420,8 @@ export function drawMagnetPortrait(ctx: CanvasRenderingContext2D, cx: number, cy
 
 export const magnetDef: CharacterDef = {
   id: 'magnet',
-  name: '磁铁',
   nameEn: 'MAGNET BALL',
-  tagline: '异极相吸，一碰就炸',
-  rules: [
-    `每 ${SPAWN_INTERVAL} 秒在身边放下一根条形磁铁（场上最多 ${MAX_BARS} 根）`,
-    `磁铁会互相吸引，${PAIR_RANGE_R} 个身位内的两根会滑到一起；落单的磁铁慢慢飘向敌人`,
-    `两根磁铁吸在一起 ${FUSE_TIME} 秒后爆炸`,
-    `爆炸中心最高 -${MAX_DAMAGE}，离得越远伤害越低（每个身位少 ${FALLOFF}）`,
-  ],
+  ruleValues: { spawnInterval: SPAWN_INTERVAL, maxBars: MAX_BARS, pairRangeR: PAIR_RANGE_R, fuseTime: FUSE_TIME, maxDamage: MAX_DAMAGE, falloff: FALLOFF },
   palette: { ball: '#8043c8', text: '#ffffff', accent: '#7c4ddb' },
   mirrorPalette: { ball: '#4c1d95', text: '#ede9fe', accent: '#a78bfa' },
   create: (w, b) => new MagnetAbility(w, b),

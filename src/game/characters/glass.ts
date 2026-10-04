@@ -1,4 +1,5 @@
-import type { Vec } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import type { WallBounce } from '../engine/types'
@@ -34,7 +35,7 @@ export class GlassAbility extends Ability {
     if (this.owner.disarmed) return
     const rng = this.world.rng
     const n = rng.int(MIN_SHARDS, MAX_SHARDS)
-    const inward = Math.atan2(e.normal.y, e.normal.x)
+    const inward = dm.atan2(e.normal.y, e.normal.x)
     for (let i = 0; i < n; i++) {
       const a = inward + rng.range(-1.05, 1.05)
       const dist = SKID * rng.range(0.4, 1.4)
@@ -47,9 +48,9 @@ export class GlassAbility extends Ability {
       for (let k = 0; k < sides; k++) {
         const t = rot + (k / sides) * Math.PI * 2 + rng.range(-0.3, 0.3)
         const r = size * rng.range(0.6, 1)
-        shape.push({ x: Math.cos(t) * r, y: Math.sin(t) * r })
+        shape.push({ x: dm.cos(t) * r, y: dm.sin(t) * r })
       }
-      this.shards.push({ pos: { x: e.point.x, y: e.point.y }, vel: { x: Math.cos(a) * speed, y: Math.sin(a) * speed }, shape, born: this.world.time })
+      this.shards.push({ pos: { x: e.point.x, y: e.point.y }, vel: { x: dm.cos(a) * speed, y: dm.sin(a) * speed }, shape, born: this.world.time })
     }
     while (this.shards.length > MAX_LIVE_SHARDS) this.shards.shift()
     this.world.effects.burst(e.point, { count: 4, color: ['#e2e8f0', '#64748b'], speed: [40, 120], size: [1, 2.5], life: [0.15, 0.3] })
@@ -57,7 +58,7 @@ export class GlassAbility extends Ability {
   }
 
   override update(dt: number): void {
-    const k = Math.exp(-SETTLE_RATE * dt)
+    const k = dm.exp(-SETTLE_RATE * dt)
     const s = this.world.size
     for (const sh of this.shards) {
       sh.vel.x *= k
@@ -69,7 +70,7 @@ export class GlassAbility extends Ability {
     if (!e.alive || !this.world.combatActive) return
     const reach = e.radius + SHARD_RADIUS
     this.shards = this.shards.filter((sh) => {
-      if ((sh.pos.x - e.pos.x) ** 2 + (sh.pos.y - e.pos.y) ** 2 >= reach * reach) return true
+      if (distSq(sh.pos, e.pos) >= reach * reach) return true
       this.world.damage(e, SHARD_DAMAGE, { kind: 'glass', source: this.owner, at: sh.pos })
       return false
     })
@@ -132,7 +133,7 @@ export function drawGlassPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
     [1.9, -1.6, 2.8],
   ]
   for (const [dx, dy, rot] of pieces) {
-    const shape = [0, 1, 2].map((k) => ({ x: Math.cos(rot + k * 2.1) * r * 0.32, y: Math.sin(rot + k * 2.1) * r * 0.32 }))
+    const shape = [0, 1, 2].map((k) => ({ x: dm.cos(rot + k * 2.1) * r * 0.32, y: dm.sin(rot + k * 2.1) * r * 0.32 }))
     drawShard(ctx, { x: cx + dx * r, y: cy + dy * r }, shape)
   }
   ctx.fillStyle = color
@@ -148,15 +149,8 @@ export function drawGlassPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const glassDef: CharacterDef = {
   id: 'glass',
-  name: '玻璃渣',
   nameEn: 'GLASS BALL',
-  tagline: '一路碎一路扎',
-  rules: [
-    `每次撞墙在墙边洒下 ${MIN_SHARDS}~${MAX_SHARDS} 片碎玻璃`,
-    `敌人每碾过一片 -${SHARD_DAMAGE}，碎片随之消失`,
-    `碎片会一直留在场上（最多 ${MAX_LIVE_SHARDS} 片）`,
-    '自己碾过碎片不受伤',
-  ],
+  ruleValues: { minShards: MIN_SHARDS, maxShards: MAX_SHARDS, shardDamage: SHARD_DAMAGE, maxLiveShards: MAX_LIVE_SHARDS },
   palette: { ball: '#a9cce0', text: '#ffffff', accent: '#b8c8d8' },
   mirrorPalette: { ball: '#64748b', text: '#f1f5f9', accent: '#94a3b8' },
   create: (w, b) => new GlassAbility(w, b),

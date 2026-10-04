@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp, dist } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
@@ -93,7 +94,7 @@ export class SonicAbility extends Ability {
       const radius = this.radiusOf(r, now)
       if (radius > RING_MAX_RADIUS) continue
       const u = (radius - RING_START_RADIUS) / (RING_MAX_RADIUS - RING_START_RADIUS)
-      ctx.globalAlpha = fade * 0.8 * Math.pow(1 - u, 0.9)
+      ctx.globalAlpha = fade * 0.8 * dm.pow(1 - u, 0.9)
       ctx.lineWidth = 2.2 - u * 0.8
       drawDashedRing(ctx, r.center.x, r.center.y, radius, r.phase)
     }
@@ -107,7 +108,7 @@ function drawDashedRing(ctx: CanvasRenderingContext2D, x: number, y: number, rad
   ctx.beginPath()
   for (let i = 0; i < DASHES; i++) {
     const a = phase + i * slot
-    ctx.moveTo(x + Math.cos(a) * radius, y + Math.sin(a) * radius)
+    ctx.moveTo(x + dm.cos(a) * radius, y + dm.sin(a) * radius)
     ctx.arc(x, y, radius, a, a + slot * DASH_FILL)
   }
   ctx.stroke()
@@ -132,15 +133,8 @@ export function drawSonicPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const sonicDef: CharacterDef = {
   id: 'sonic',
-  name: '音波',
   nameEn: 'SONIC BALL',
-  tagline: '一圈一圈震碎你',
-  rules: [
-    `每 ${PULSE_INTERVAL} 秒在原地发出一次声波，一次 ${RINGS_PER_PULSE} 圈`,
-    `声波环向外扩散，最远到 ${RING_REACH} 个球半径`,
-    `每圈扫过敌人时命中一次，造成 ${RING_MIN_DAMAGE}–${RING_MAX_DAMAGE} 伤害`,
-    '离声源越近伤害越高，没有击退',
-  ],
+  ruleValues: { pulseInterval: PULSE_INTERVAL, ringsPerPulse: RINGS_PER_PULSE, ringReach: RING_REACH, ringMinDamage: RING_MIN_DAMAGE, ringMaxDamage: RING_MAX_DAMAGE },
   palette: { ball: '#2060f8', text: '#ffffff', accent: '#2f6ff0' },
   mirrorPalette: { ball: '#1e3a8a', text: '#dbeafe', accent: '#60a5fa' },
   create: (w, b) => new SonicAbility(w, b),

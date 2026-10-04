@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { distanceToSegment } from '../core/geometry'
 import { type Vec, clamp } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -79,7 +80,7 @@ export class CableAbility extends Ability {
       this.world.sound('place', 0.35, 1.3)
       return
     }
-    const chord = Math.hypot(here.point.x - held.point.x, here.point.y - held.point.y)
+    const chord = dm.hypot(here.point.x - held.point.x, here.point.y - held.point.y)
     if (held.wall === here.wall || chord < MIN_CHORD) {
       // Re-plug here, keeping the colour already picked.
       here.color = held.color
@@ -94,7 +95,7 @@ export class CableAbility extends Ability {
   private string(a: Anchor, b: Anchor): void {
     const dx = b.point.x - a.point.x
     const dy = b.point.y - a.point.y
-    const chord = Math.hypot(dx, dy)
+    const chord = dm.hypot(dx, dy)
     const side = this.world.rng.sign()
     // A quadratic's apex sits halfway between the chord midpoint and the control point.
     const off = 2 * BOW * chord * side
@@ -107,7 +108,7 @@ export class CableAbility extends Ability {
     if (this.cables.length >= MAX_CABLES) this.cables.shift()
     this.cables.push({ a, b, control, pts, color: a.color, age: 0 })
     this.world.sound('thread', 0.6, 0.7)
-    this.world.effects.burst(b.point, { count: 8, color: ['#ffffff', '#fef08a', a.color], shape: 'spark', speed: [80, 240], size: [1.5, 3], life: [0.15, 0.3], direction: Math.atan2(b.normal.y, b.normal.x), spread: 1.2 })
+    this.world.effects.burst(b.point, { count: 8, color: ['#ffffff', '#fef08a', a.color], shape: 'spark', speed: [80, 240], size: [1.5, 3], life: [0.15, 0.3], direction: dm.atan2(b.normal.y, b.normal.x), spread: 1.2 })
   }
 
   override update(dt: number): void {
@@ -203,8 +204,8 @@ export class CableAbility extends Ability {
       const a = (i / spikes) * Math.PI * 2 + (hash(frame) - 0.5) * 0.5
       const r0 = e.radius + 2
       const r1 = r0 + 4 + j * 7
-      ctx.moveTo(e.pos.x + Math.cos(a) * r0, e.pos.y + Math.sin(a) * r0)
-      ctx.lineTo(e.pos.x + Math.cos(a) * r1, e.pos.y + Math.sin(a) * r1)
+      ctx.moveTo(e.pos.x + dm.cos(a) * r0, e.pos.y + dm.sin(a) * r0)
+      ctx.lineTo(e.pos.x + dm.cos(a) * r1, e.pos.y + dm.sin(a) * r1)
     }
     ctx.stroke()
     ctx.restore()
@@ -223,7 +224,7 @@ function distanceToPolyline(p: Vec, pts: readonly Vec[]): number {
 }
 
 function hash(n: number): number {
-  const x = Math.sin(n * 12.9898) * 43758.5453
+  const x = dm.sin(n * 12.9898) * 43758.5453
   return x - Math.floor(x)
 }
 
@@ -270,7 +271,7 @@ export function drawCable(ctx: CanvasRenderingContext2D, a: Vec, c: Vec, b: Vec,
   ctx.stroke()
 
   // Clamps: two on short runs, three on long ones.
-  const chord = Math.hypot(b.x - a.x, b.y - a.y)
+  const chord = dm.hypot(b.x - a.x, b.y - a.y)
   const ts = chord > BALL_RADIUS * 8 ? [0.25, 0.5, 0.75] : [0.33, 0.67]
   ctx.fillStyle = mix(color, dark, 0.55 + dim * 0.3)
   for (const t of ts) {
@@ -280,7 +281,7 @@ export function drawCable(ctx: CanvasRenderingContext2D, a: Vec, c: Vec, b: Vec,
     const ty = 2 * (1 - t) * (c.y - a.y) + 2 * t * (b.y - c.y)
     ctx.save()
     ctx.translate(p.x, p.y)
-    ctx.rotate(Math.atan2(ty, tx))
+    ctx.rotate(dm.atan2(ty, tx))
     const l = width * 1.2
     const w = width * 1.3
     ctx.fillRect(-l / 2, -w / 2, l, w)
@@ -315,7 +316,7 @@ export function drawCablePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   for (const [a, b, na, nb, c] of runs) {
     const dx = b.x - a.x
     const dy = b.y - a.y
-    const l = Math.hypot(dx, dy)
+    const l = dm.hypot(dx, dy)
     const ctrl = { x: (a.x + b.x) / 2 + (-dy / l) * 0.2 * l, y: (a.y + b.y) / 2 + (dx / l) * 0.2 * l }
     drawCable(ctx, a, ctrl, b, c, w)
     drawPlug(ctx, a, na, r * 0.34)
@@ -333,15 +334,8 @@ export function drawCablePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const cableDef: CharacterDef = {
   id: 'cable',
-  name: '电缆',
   nameEn: 'CABLE BALL',
-  tagline: '墙到墙，全通电',
-  rules: [
-    `每撞两次墙，就在两个撞墙点之间拉起一根电缆（最多 ${MAX_CABLES} 根）`,
-    `电缆持续 ${CABLE_LIFE} 秒，自己碰到没事`,
-    `敌人碰到电缆会触电 ${SHOCK_DURATION} 秒：每 ${SHOCK_TICK} 秒 -${SHOCK_DAMAGE}，再碰会续时间`,
-    `触电期间速度降到 ${Math.round(SHOCK_SLOW * 100)}%`,
-  ],
+  ruleValues: { maxCables: MAX_CABLES, cableLife: CABLE_LIFE, shockDuration: SHOCK_DURATION, shockTick: SHOCK_TICK, shockDamage: SHOCK_DAMAGE, shockSlowPercent: Math.round(SHOCK_SLOW * 100) },
   palette: { ball: '#f6cc24', text: '#ffffff', accent: '#f6cc24' },
   mirrorPalette: { ball: '#a16207', text: '#fef9c3', accent: '#eab308' },
   create: (w, b) => new CableAbility(w, b),

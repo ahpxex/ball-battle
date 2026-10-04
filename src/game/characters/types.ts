@@ -12,11 +12,13 @@ export interface Palette {
 
 export interface CharacterDef {
   id: CharacterId
-  name: string
+  /** Pixel-font display title; the localized name, tagline and rules live in i18n/locales/<lang>/characters.ts. */
   nameEn: string
-  tagline: string
-  /** Mechanics, in reading order. */
-  rules: readonly string[]
+  /**
+   * Tuning constants quoted by the localized rule text (`{{key}}` placeholders),
+   * so the rules shown on the select screen always match the actual numbers.
+   */
+  ruleValues?: Readonly<Record<string, string | number>>
   palette: Palette
   /** Used for the second ball when both players pick the same character. */
   mirrorPalette: Palette

@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, cube, distSq, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { BALL_RADIUS } from '../engine/constants'
 import type { CharacterDef } from './types'
@@ -104,7 +105,7 @@ export class FreezerAbility extends Ability {
       let at = { x: 0, y: 0 }
       for (let attempt = 0; attempt < 8; attempt++) {
         at = { x: rng.range(WALL_MARGIN, s - WALL_MARGIN), y: rng.range(WALL_MARGIN, s - WALL_MARGIN) }
-        if (placed.every((q) => (q.x - at.x) ** 2 + (q.y - at.y) ** 2 >= PILLAR_SPACING * PILLAR_SPACING)) break
+        if (placed.every((q) => distSq(q, at) >= PILLAR_SPACING * PILLAR_SPACING)) break
       }
       placed.push(at)
       this.pillars.push({ pos: at, age: 0, variant: rng.int(0, 2) as PillarVariant, touching: false, tickTimer: 0 })
@@ -133,7 +134,7 @@ export class FreezerAbility extends Ability {
       return false
     }
     if (!e.invulnerable) e.applySlow(PILLAR_SLOW, SLOW_REFRESH)
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     const at = { x: e.pos.x - (dx / d) * e.radius, y: e.pos.y - (dy / d) * e.radius }
     if (!p.touching) {
       p.touching = true
@@ -183,7 +184,7 @@ export class FreezerAbility extends Ability {
 
 function easeOutBack(u: number): number {
   const c = 1.6
-  return 1 + (c + 1) * (u - 1) ** 3 + c * (u - 1) ** 2
+  return 1 + (c + 1) * cube(u - 1) + c * sq(u - 1)
 }
 
 /** A ring of white dots closing in where a pillar is about to rise. */
@@ -199,7 +200,7 @@ function drawTelegraph(ctx: CanvasRenderingContext2D, x: number, y: number, u: n
   for (let i = 0; i < dots; i++) {
     const a = (i / dots) * Math.PI * 2 + time * 2
     ctx.beginPath()
-    ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.6, 1.6 + 1.2 * u, 0, Math.PI * 2)
+    ctx.arc(x + dm.cos(a) * r, y + dm.sin(a) * r * 0.6, 1.6 + 1.2 * u, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -215,7 +216,7 @@ function drawFrozenRing(ctx: CanvasRenderingContext2D, x: number, y: number, r: 
   for (let i = 0; i < dots; i++) {
     const a = (i / dots) * Math.PI * 2 - time * 0.8
     ctx.beginPath()
-    ctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, 1.8, 0, Math.PI * 2)
+    ctx.arc(x + dm.cos(a) * rr, y + dm.sin(a) * rr, 1.8, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -332,15 +333,8 @@ export function drawFreezerPortrait(ctx: CanvasRenderingContext2D, cx: number, c
 
 export const freezerDef: CharacterDef = {
   id: 'freezer',
-  name: '冰川',
   nameEn: 'FREEZER',
-  tagline: '寒气逼人',
-  rules: [
-    `持续散发寒气：不论距离，每 ${CHILL_TICK} 秒让敌人 -${CHILL_DAMAGE}`,
-    `每 ${WAVE_INTERVAL} 秒在场上随机升起 ${PILLARS_PER_WAVE} 根冰柱，持续 ${PILLAR_ACTIVE} 秒`,
-    `敌人碰到冰柱立刻 -${PILLAR_DAMAGE}，贴着冰柱每 ${PILLAR_TICK.toFixed(1)} 秒再 -${PILLAR_DAMAGE}`,
-    `碰到冰柱时速度降到 ${Math.round(PILLAR_SLOW * 100)}%；冰柱不挡路，对自己无效`,
-  ],
+  ruleValues: { chillTick: CHILL_TICK, chillDamage: CHILL_DAMAGE, waveInterval: WAVE_INTERVAL, pillarsPerWave: PILLARS_PER_WAVE, pillarActive: PILLAR_ACTIVE, pillarDamage: PILLAR_DAMAGE, pillarTick: PILLAR_TICK.toFixed(1), pillarSlowPercent: Math.round(PILLAR_SLOW * 100) },
   palette: { ball: '#50c0f8', text: '#ffffff', accent: '#4db8f5' },
   mirrorPalette: { ball: '#0e6fa0', text: '#e0f2fe', accent: '#7dd3fc' },
   create: (w, b) => new FreezerAbility(w, b),

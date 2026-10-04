@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { closestPointOnSegment, pointInTriangle } from '../core/geometry'
 import { type Vec, clamp, dist } from '../core/vec'
 import { Ability } from '../engine/Ability'
@@ -61,7 +62,7 @@ export class SpikeAbility extends Ability {
     const n = e.normal
     this.pending.push({ point: { x: e.point.x, y: e.point.y }, normal: { x: n.x, y: n.y }, due: this.world.time + SPIKE_DELAY })
 
-    const dir = Math.atan2(n.y, n.x)
+    const dir = dm.atan2(n.y, n.x)
     const puffAt = { x: e.point.x + n.x * BALL_RADIUS * 0.35, y: e.point.y + n.y * BALL_RADIUS * 0.35 }
     this.world.effects.burst(puffAt, {
       count: 9,
@@ -186,7 +187,7 @@ export function drawIronSpike(ctx: CanvasRenderingContext2D, tip: Vec, left: Vec
   if (alpha <= 0) return
   const midX = (left.x + right.x) / 2
   const midY = (left.y + right.y) / 2
-  if (Math.hypot(tip.x - midX, tip.y - midY) < 0.5) return
+  if (dm.hypot(tip.x - midX, tip.y - midY) < 0.5) return
   ctx.save()
   ctx.globalAlpha = alpha
   ctx.lineJoin = 'round'
@@ -259,15 +260,8 @@ export function drawSpikePortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const spikeDef: CharacterDef = {
   id: 'spike',
-  name: '铁刺',
   nameEn: 'SPIKE',
-  tagline: '小心，别扎到自己',
-  rules: [
-    `每次撞墙，${SPIKE_DELAY} 秒后会在撞击点长出一根永久钢刺`,
-    `敌人碰到钢刺 -${SPIKE_DAMAGE}，铁刺自己碰到也会被扎 -${SELF_DAMAGE}`,
-    `同一根刺对同一个球每 ${SPIKE_COOLDOWN} 秒最多扎一次`,
-    `钢刺不阻挡移动，最多保留 ${MAX_SPIKES} 根（满了拔掉最旧的）`,
-  ],
+  ruleValues: { spikeDelay: SPIKE_DELAY, spikeDamage: SPIKE_DAMAGE, selfDamage: SELF_DAMAGE, spikeCooldown: SPIKE_COOLDOWN, maxSpikes: MAX_SPIKES },
   palette: { ball: '#808088', text: '#ffffff', accent: '#9ca3af' },
   mirrorPalette: { ball: '#4b4f58', text: '#f4f4f5', accent: '#cbd5e1' },
   create: (w, b) => new SpikeAbility(w, b),

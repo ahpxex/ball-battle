@@ -1,4 +1,5 @@
-import { type Vec, clamp, damp, lerpAngle } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, damp, distSq, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -46,7 +47,7 @@ export class DrillAbility extends Ability {
 
   private get tip(): Vec {
     const o = this.owner.pos
-    return { x: o.x + Math.cos(this.angle) * TIP_REACH, y: o.y + Math.sin(this.angle) * TIP_REACH }
+    return { x: o.x + dm.cos(this.angle) * TIP_REACH, y: o.y + dm.sin(this.angle) * TIP_REACH }
   }
 
   override update(dt: number): void {
@@ -57,14 +58,14 @@ export class DrillAbility extends Ability {
       return
     }
     if (this.world.combatActive) {
-      const target = Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
+      const target = dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
       this.angle = lerpAngle(this.angle, target, damp(30, dt))
     }
     this.cooldown = Math.max(0, this.cooldown - dt)
     if (this.cooldown > 0 || o.disarmed || !this.world.combatActive || !e.alive) return
-    if ((e.pos.x - o.pos.x) ** 2 + (e.pos.y - o.pos.y) ** 2 < MIN_RANGE * MIN_RANGE) return
+    if (distSq(e.pos, o.pos) < MIN_RANGE * MIN_RANGE) return
     const tip = this.tip
-    if ((tip.x - e.pos.x) ** 2 + (tip.y - e.pos.y) ** 2 >= e.radius * e.radius) return
+    if (distSq(tip, e.pos) >= e.radius * e.radius) return
     this.start(e)
   }
 
@@ -75,7 +76,7 @@ export class DrillAbility extends Ability {
     if (holding) target.attachedTo = o
     this.episode = {
       target,
-      axis: { x: Math.cos(this.angle), y: Math.sin(this.angle) },
+      axis: { x: dm.cos(this.angle), y: dm.sin(this.angle) },
       ticksLeft: DRILL_TICKS,
       tickTimer: 0,
       holding,
@@ -107,7 +108,7 @@ export class DrillAbility extends Ability {
       t.pos.y = clamp(o.pos.y + ep.axis.y * HOLD_DISTANCE, t.radius, s - t.radius)
       t.vel = { x: o.vel.x, y: o.vel.y }
     }
-    this.angle = Math.atan2(t.pos.y - o.pos.y, t.pos.x - o.pos.x)
+    this.angle = dm.atan2(t.pos.y - o.pos.y, t.pos.x - o.pos.x)
 
     ep.tickTimer -= dt
     if (ep.tickTimer > 0) return
@@ -207,15 +208,8 @@ export function drawDrillPortrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const drillDef: CharacterDef = {
   id: 'drill',
-  name: '电钻',
   nameEn: 'DRILL',
-  tagline: '钻头永远对准你',
-  rules: [
-    '钻头始终指向敌人',
-    `钻尖扎进敌人后锁住对方，连钻 ${DRILL_TICKS} 下，每下 -${DRILL_DAMAGE}`,
-    '钻完松开，双方各自按原来的方向继续移动',
-    `每次钻击冷却 ${DRILL_COOLDOWN} 秒`,
-  ],
+  ruleValues: { drillTicks: DRILL_TICKS, drillDamage: DRILL_DAMAGE, drillCooldown: DRILL_COOLDOWN },
   palette: { ball: '#2c5460', text: '#ffffff', accent: '#4a8798' },
   mirrorPalette: { ball: '#134e4a', text: '#ccfbf1', accent: '#14b8a6' },
   create: (w, b) => new DrillAbility(w, b),

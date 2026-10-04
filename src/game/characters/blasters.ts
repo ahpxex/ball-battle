@@ -1,4 +1,5 @@
-import { type Vec, angleDiff, clamp, damp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, angleDiff, clamp, damp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -60,13 +61,13 @@ export class BlastersAbility extends Ability {
   constructor(world: World, owner: Ball) {
     super(world, owner)
     const e = world.opponentOf(owner)
-    this.aim = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
+    this.aim = dm.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
   }
 
   override update(dt: number): void {
     const o = this.owner
     const e = this.enemy
-    if (e.alive) this.aim += angleDiff(this.aim, Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)) * damp(AIM_RATE, dt)
+    if (e.alive) this.aim += angleDiff(this.aim, dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)) * damp(AIM_RATE, dt)
     this.sinceShot[0] += dt
     this.sinceShot[1] += dt
     if (this.world.combatActive && !o.disarmed) this.cycle(dt)
@@ -103,8 +104,8 @@ export class BlastersAbility extends Ability {
   }
 
   private gunFrame(): { fx: number; fy: number; lx: number; ly: number } {
-    const fx = Math.cos(this.aim)
-    const fy = Math.sin(this.aim)
+    const fx = dm.cos(this.aim)
+    const fy = dm.sin(this.aim)
     return { fx, fy, lx: -fy, ly: fx }
   }
 
@@ -117,7 +118,7 @@ export class BlastersAbility extends Ability {
       y: o.y + fy * MUZZLE_AHEAD + ly * GUN_OFFSET * side,
     }
     const a = this.aim + this.world.rng.range(-SPREAD, SPREAD)
-    this.bullets.push({ pos: muzzle, vel: { x: Math.cos(a) * BULLET_SPEED, y: Math.sin(a) * BULLET_SPEED } })
+    this.bullets.push({ pos: muzzle, vel: { x: dm.cos(a) * BULLET_SPEED, y: dm.sin(a) * BULLET_SPEED } })
     this.sinceShot[gun] = 0
     this.world.effects.burst(muzzle, { count: 2, color: ['#fde68a', '#ffffff', '#fb923c'], shape: 'spark', direction: this.aim, spread: 0.5, speed: [100, 240], size: [1.2, 2.4], life: [0.06, 0.14] })
     if (gun === 0) this.world.sound('clack', 0.35, 1.6)
@@ -134,7 +135,7 @@ export class BlastersAbility extends Ability {
       const a = (i / MAGAZINES) * Math.PI * 2 + fx.random() * 1.6
       const d = BALL_RADIUS * 1.35 + fx.random() * (MAG_RANGE - BALL_RADIUS * 1.35)
       this.magazines.push({
-        pos: { x: clamp(o.x + Math.cos(a) * d, m, s - m), y: clamp(o.y + Math.sin(a) * d, m, s - m) },
+        pos: { x: clamp(o.x + dm.cos(a) * d, m, s - m), y: clamp(o.y + dm.sin(a) * d, m, s - m) },
         angle: fx.random() * Math.PI * 2,
       })
     }
@@ -149,7 +150,7 @@ export class BlastersAbility extends Ability {
     for (const b of this.bullets) {
       b.pos.x += b.vel.x * dt
       b.pos.y += b.vel.y * dt
-      if (e.alive && this.world.combatActive && (b.pos.x - e.pos.x) ** 2 + (b.pos.y - e.pos.y) ** 2 < reach * reach) {
+      if (e.alive && this.world.combatActive && distSq(b.pos, e.pos) < reach * reach) {
         this.world.damage(e, BULLET_DAMAGE, { kind: 'bullet', source: this.owner, at: b.pos })
         continue
       }
@@ -183,7 +184,7 @@ export class BlastersAbility extends Ability {
     if (fade <= 0) return
     ctx.save()
     ctx.globalAlpha = fade
-    for (const b of this.bullets) drawBullet(ctx, b.pos.x, b.pos.y, Math.atan2(b.vel.y, b.vel.x), BULLET_RADIUS)
+    for (const b of this.bullets) drawBullet(ctx, b.pos.x, b.pos.y, dm.atan2(b.vel.y, b.vel.x), BULLET_RADIUS)
     if (this.owner.alive) {
       const o = this.owner.pos
       const { fx, fy, lx, ly } = this.gunFrame()
@@ -312,8 +313,8 @@ export function drawMagazine(ctx: CanvasRenderingContext2D, x: number, y: number
 
 /** Tiny red teardrop pointing along `angle`, with a short trail. */
 export function drawBullet(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, r: number): void {
-  const c = Math.cos(angle)
-  const s = Math.sin(angle)
+  const c = dm.cos(angle)
+  const s = dm.sin(angle)
   ctx.save()
   ctx.strokeStyle = 'rgba(248,113,113,0.4)'
   ctx.lineWidth = r * 0.9
@@ -363,8 +364,8 @@ export function drawBlastersPortrait(ctx: CanvasRenderingContext2D, cx: number, 
   const a = -0.62
   drawMagazine(ctx, cx - r * 1.6, cy + r * 1.75, 0.5, r)
   drawMagazine(ctx, cx + r * 1.2, cy + r * 1.8, -0.3, r)
-  const c = Math.cos(a)
-  const s = Math.sin(a)
+  const c = dm.cos(a)
+  const s = dm.sin(a)
   for (const [ahead, lat] of [
     [2.3, -1.5],
     [2.75, 1.5],
@@ -381,15 +382,8 @@ export function drawBlastersPortrait(ctx: CanvasRenderingContext2D, cx: number, 
 
 export const blastersDef: CharacterDef = {
   id: 'blasters',
-  name: '蒙犽',
   nameEn: 'BLASTERS',
-  tagline: '双枪齐射，火力压制',
-  rules: [
-    '两侧各挂一把枪，枪口带一点延迟跟着敌人转',
-    `每轮连射 ${BURST_TIME} 秒，每把枪每 ${FIRE_INTERVAL} 秒打一发`,
-    `每颗子弹命中 -${BULLET_DAMAGE}，撞墙即消失`,
-    `打完一轮要换弹 ${RELOAD_TIME} 秒，期间不能开火`,
-  ],
+  ruleValues: { burstTime: BURST_TIME, fireInterval: FIRE_INTERVAL, bulletDamage: BULLET_DAMAGE, reloadTime: RELOAD_TIME },
   palette: { ball: '#e8352c', text: '#ffffff', accent: '#f0524a' },
   mirrorPalette: { ball: '#c2410c', text: '#ffedd5', accent: '#fb923c' },
   create: (w, b) => new BlastersAbility(w, b),

@@ -1,4 +1,5 @@
-import { type Vec, clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, clamp, distSq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import { PIXEL_FONT } from '../render/draw'
 import type { CharacterDef } from './types'
@@ -24,13 +25,13 @@ const HIT_PADDING = 6
 /** Rolls one number in [1, MAX_NUMBER] from a heavy-tailed distribution. */
 export function rollNumber(u: number): number {
   // Inverse-CDF sampling of a Pareto distribution with x_min = 1.
-  const v = Math.floor(1 / Math.pow(Math.max(u, 1e-9), 1 / ALPHA))
+  const v = Math.floor(1 / dm.pow(Math.max(u, 1e-9), 1 / ALPHA))
   return clamp(v, 1, MAX_NUMBER)
 }
 
 /** Probability that a single roll is at least `x`. */
 export function chanceAtLeast(x: number): number {
-  return Math.pow(x, -ALPHA)
+  return dm.pow(x, -ALPHA)
 }
 
 interface Thrown {
@@ -108,7 +109,7 @@ export class MathBallAbility extends Ability {
     const e = this.enemy
     const dx = e.pos.x - o.pos.x
     const dy = e.pos.y - o.pos.y
-    const d = Math.hypot(dx, dy) || 1
+    const d = dm.hypot(dx, dy) || 1
     this.thrown.push({
       value,
       pos: { x: o.pos.x, y: o.pos.y - o.radius - 14 },
@@ -126,18 +127,18 @@ export class MathBallAbility extends Ability {
       t.age += dt
       if (e.alive) {
         // Steer towards the enemy with a limited turn rate.
-        const want = Math.atan2(e.pos.y - t.pos.y, e.pos.x - t.pos.x)
-        const cur = Math.atan2(t.vel.y, t.vel.x)
+        const want = dm.atan2(e.pos.y - t.pos.y, e.pos.x - t.pos.x)
+        const cur = dm.atan2(t.vel.y, t.vel.x)
         let diff = want - cur
         while (diff > Math.PI) diff -= Math.PI * 2
         while (diff < -Math.PI) diff += Math.PI * 2
         const a = cur + clamp(diff, -TURN_RATE * dt, TURN_RATE * dt)
-        t.vel = { x: Math.cos(a) * THROW_SPEED, y: Math.sin(a) * THROW_SPEED }
+        t.vel = { x: dm.cos(a) * THROW_SPEED, y: dm.sin(a) * THROW_SPEED }
       }
       t.pos.x += t.vel.x * dt
       t.pos.y += t.vel.y * dt
       const reach = e.radius + HIT_PADDING + tier(t.value).size * 0.3
-      if (e.alive && this.world.combatActive && (t.pos.x - e.pos.x) ** 2 + (t.pos.y - e.pos.y) ** 2 < reach * reach) {
+      if (e.alive && this.world.combatActive && distSq(t.pos, e.pos) < reach * reach) {
         const big = t.value >= 50
         this.world.damage(e, t.value, {
           kind: 'math',
@@ -175,7 +176,7 @@ export class MathBallAbility extends Ability {
       const tr = tier(t.value)
       const life = Math.min(1, (THROW_LIFETIME - t.age) / 0.3)
       ctx.globalAlpha = fade * life * 0.35
-      const sp = Math.hypot(t.vel.x, t.vel.y) || 1
+      const sp = dm.hypot(t.vel.x, t.vel.y) || 1
       ctx.strokeStyle = tr.color
       ctx.lineWidth = Math.max(2, tr.size * 0.25)
       ctx.beginPath()
@@ -240,15 +241,8 @@ export function drawMathBallPortrait(ctx: CanvasRenderingContext2D, cx: number, 
 
 export const mathBallDef: CharacterDef = {
   id: 'mathBall',
-  name: '术理球',
   nameEn: 'MATH BALL',
-  tagline: '全靠算，也全靠运气',
-  rules: [
-    `每 ${ROLL_INTERVAL} 秒滚动算出一个随机数字，然后扔向敌人`,
-    `砸中扣对应的血：大多是个位数，最大可达 ${MAX_NUMBER}`,
-    `≥10 的概率约 ${Math.round(chanceAtLeast(10) * 100)}%，≥100 约 ${(chanceAtLeast(100) * 100).toFixed(1)}%`,
-    '扔出的数字会追踪敌人，但转向有限，可以躲开',
-  ],
+  ruleValues: { rollInterval: ROLL_INTERVAL, maxNumber: MAX_NUMBER, chanceTwoDigitsPercent: Math.round(chanceAtLeast(10) * 100), chanceThreeDigitsPercent: (chanceAtLeast(100) * 100).toFixed(1) },
   palette: { ball: '#c026d3', text: '#ffffff', accent: '#e879f9' },
   mirrorPalette: { ball: '#6d28d9', text: '#ede9fe', accent: '#a78bfa' },
   create: (w, b) => new MathBallAbility(w, b),

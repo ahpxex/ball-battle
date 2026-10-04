@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { Rng } from '../core/rng'
 import type { Vec } from '../core/vec'
 
@@ -85,8 +86,8 @@ export class Effects {
       this.particles.push({
         x: at.x + r.range(-j, j),
         y: at.y + r.range(-j, j),
-        vx: Math.cos(dir) * speed,
-        vy: Math.sin(dir) * speed,
+        vx: dm.cos(dir) * speed,
+        vy: dm.sin(dir) * speed,
         life,
         maxLife: life,
         size: r.range(o.size[0], o.size[1]),
@@ -136,7 +137,7 @@ export class Effects {
       const p = ps[i]
       p.life -= dt
       if (p.life <= 0) continue
-      const k = Math.exp(-p.drag * dt)
+      const k = dm.exp(-p.drag * dt)
       p.vx *= k
       p.vy = p.vy * k + p.gravity * dt
       p.x += p.vx * dt
@@ -153,7 +154,7 @@ export class Effects {
       t.life -= dt
       if (t.life <= 0) continue
       t.y += t.vy * dt
-      t.vy *= Math.exp(-2.5 * dt)
+      t.vy *= dm.exp(-2.5 * dt)
       ts[w++] = t
     }
     ts.length = w

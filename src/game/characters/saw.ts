@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -46,7 +47,7 @@ export class SawAbility extends Ability {
   private bladePos(i: number): { x: number; y: number } {
     const a = this.bladeAngle(i)
     const o = this.owner.pos
-    return { x: o.x + Math.cos(a) * BLADE_ORBIT, y: o.y + Math.sin(a) * BLADE_ORBIT }
+    return { x: o.x + dm.cos(a) * BLADE_ORBIT, y: o.y + dm.sin(a) * BLADE_ORBIT }
   }
 
   override update(dt: number): void {
@@ -104,9 +105,9 @@ export function drawSawBlade(ctx: CanvasRenderingContext2D, x: number, y: number
   for (let i = 0; i < TOOTH_COUNT; i++) {
     const a = i * step
     // Sawtooth: rise to the tip, then drop straight back to the gullet.
-    ctx.lineTo(Math.cos(a) * inner, Math.sin(a) * inner)
-    ctx.lineTo(Math.cos(a + step * 0.85) * r, Math.sin(a + step * 0.85) * r)
-    ctx.lineTo(Math.cos(a + step) * inner, Math.sin(a + step) * inner)
+    ctx.lineTo(dm.cos(a) * inner, dm.sin(a) * inner)
+    ctx.lineTo(dm.cos(a + step * 0.85) * r, dm.sin(a + step * 0.85) * r)
+    ctx.lineTo(dm.cos(a + step) * inner, dm.sin(a + step) * inner)
   }
   ctx.closePath()
   ctx.restore()
@@ -142,7 +143,7 @@ export function drawSawPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: n
   const a = -0.6
   for (let i = 0; i < 2; i++) {
     const ang = a + i * Math.PI
-    drawSawBlade(ctx, cx + Math.cos(ang) * br * 2.6, cy + Math.sin(ang) * br * 2.6, br * 0.9, i * 0.5)
+    drawSawBlade(ctx, cx + dm.cos(ang) * br * 2.6, cy + dm.sin(ang) * br * 2.6, br * 0.9, i * 0.5)
   }
   ctx.fillStyle = color
   ctx.beginPath()
@@ -152,15 +153,8 @@ export function drawSawPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: n
 
 export const sawDef: CharacterDef = {
   id: 'saw',
-  name: '铁锯',
   nameEn: 'SAW BALL',
-  tagline: '两片圆锯，绕身飞旋',
-  rules: [
-    '两片圆锯在本体两侧对称公转，锯片自己也在高速旋转',
-    `锯片切到敌人 -${SAW_DAMAGE}，每片锯同一目标每 ${BLADE_COOLDOWN} 秒最多一次`,
-    `顺时针每秒转 ${ORBIT_DEG}°，锯片穿墙而过`,
-    '本体撞击没有伤害；缴械时锯片照转但切不动',
-  ],
+  ruleValues: { sawDamage: SAW_DAMAGE, bladeCooldown: BLADE_COOLDOWN, orbitDeg: ORBIT_DEG },
   palette: { ball: '#2a9646', text: '#ffffff', accent: '#3a8f54' },
   mirrorPalette: { ball: '#166534', text: '#dcfce7', accent: '#22c55e' },
   create: (w, b) => new SawAbility(w, b),
@@ -216,7 +210,7 @@ export class SawV2Ability extends Ability {
       count: 12,
       color: ['#ffffff', '#ffffff', '#e5e7eb'],
       shape: 'spark',
-      direction: Math.atan2(e.normal.y, e.normal.x),
+      direction: dm.atan2(e.normal.y, e.normal.x),
       spread: 1.3,
       speed: [180, 420],
       size: [1.5, 3],
@@ -283,7 +277,7 @@ function drawStreak(ctx: CanvasRenderingContext2D, pts: readonly StreakSample[],
     const b = path[Math.min(n - 1, i + 1)]
     const dx = b.x - a.x
     const dy = b.y - a.y
-    const l = Math.hypot(dx, dy) || 1
+    const l = dm.hypot(dx, dy) || 1
     const w = halfWidth * (i / (n - 1))
     left.push({ x: path[i].x - (dy / l) * w, y: path[i].y + (dx / l) * w })
     right.push({ x: path[i].x + (dy / l) * w, y: path[i].y - (dx / l) * w })
@@ -309,9 +303,9 @@ function drawSpikeRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, r:
   ctx.beginPath()
   for (let i = 0; i < SPIKE_COUNT; i++) {
     const a = rot + (i / SPIKE_COUNT) * Math.PI * 2
-    ctx.moveTo(cx + Math.cos(a - half) * base, cy + Math.sin(a - half) * base)
-    ctx.lineTo(cx + Math.cos(a) * tip, cy + Math.sin(a) * tip)
-    ctx.lineTo(cx + Math.cos(a + half) * base, cy + Math.sin(a + half) * base)
+    ctx.moveTo(cx + dm.cos(a - half) * base, cy + dm.sin(a - half) * base)
+    ctx.lineTo(cx + dm.cos(a) * tip, cy + dm.sin(a) * tip)
+    ctx.lineTo(cx + dm.cos(a + half) * base, cy + dm.sin(a + half) * base)
     ctx.closePath()
   }
   ctx.fillStyle = glow > 0 ? mixGrey(glow) : '#c3c9d1'
@@ -364,8 +358,8 @@ export function drawSawV2Portrait(ctx: CanvasRenderingContext2D, cx: number, cy:
   ctx.beginPath()
   for (let i = 0; i < 7; i++) {
     const a = Math.PI * 0.55 + (i / 6) * Math.PI * 0.9
-    ctx.moveTo(sx + Math.cos(a) * r * 0.2, sy + Math.sin(a) * r * 0.2)
-    ctx.lineTo(sx + Math.cos(a) * r * (0.5 + (i % 2) * 0.2), sy + Math.sin(a) * r * (0.5 + (i % 2) * 0.2))
+    ctx.moveTo(sx + dm.cos(a) * r * 0.2, sy + dm.sin(a) * r * 0.2)
+    ctx.lineTo(sx + dm.cos(a) * r * (0.5 + (i % 2) * 0.2), sy + dm.sin(a) * r * (0.5 + (i % 2) * 0.2))
   }
   ctx.stroke()
   ctx.restore()
@@ -379,15 +373,8 @@ export function drawSawV2Portrait(ctx: CanvasRenderingContext2D, cx: number, cy:
 
 export const sawV2Def: CharacterDef = {
   id: 'sawV2',
-  name: '铁锯 V2',
   nameEn: 'SAW BALL V2',
-  tagline: '撞墙蓄力，一撞翻倍',
-  rules: [
-    '锯片收回体内，浑身尖刺高速自转',
-    `本体撞到敌人 -${BODY_DAMAGE}，同一目标每 ${CONTACT_COOLDOWN} 秒最多一次`,
-    `撞墙后 ${CHARGE_WINDOW} 秒内处于蓄力状态，撞击伤害翻倍为 -${CHARGED_DAMAGE}`,
-    '撞墙时火花四溅，蓄力时身后拖出白色疾风',
-  ],
+  ruleValues: { bodyDamage: BODY_DAMAGE, contactCooldown: CONTACT_COOLDOWN, chargeWindow: CHARGE_WINDOW, chargedDamage: CHARGED_DAMAGE },
   palette: { ball: '#5b6574', text: '#ffffff', accent: '#6b7280' },
   mirrorPalette: { ball: '#334155', text: '#e2e8f0', accent: '#94a3b8' },
   create: (w, b) => new SawV2Ability(w, b),

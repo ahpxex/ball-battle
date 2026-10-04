@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import type { Vec } from '../core/vec'
 import { BALL_RADIUS, BASE_SPEED, STARTING_HP } from './constants'
 import type { CharacterId, Team } from './types'
@@ -109,7 +110,7 @@ export class Ball {
 
   applyRoot(duration: number): void {
     if (this.rootTimer <= 0 && (this.vel.x !== 0 || this.vel.y !== 0)) {
-      this.rootHeading = Math.atan2(this.vel.y, this.vel.x)
+      this.rootHeading = dm.atan2(this.vel.y, this.vel.x)
     }
     this.rootTimer = Math.max(this.rootTimer, duration)
     this.vel = { x: 0, y: 0 }
@@ -120,7 +121,7 @@ export class Ball {
     if (this.rootTimer <= 0) return
     this.rootTimer = 0
     const s = this.baseSpeed * 0.5
-    this.vel = { x: Math.cos(this.rootHeading) * s, y: Math.sin(this.rootHeading) * s }
+    this.vel = { x: dm.cos(this.rootHeading) * s, y: dm.sin(this.rootHeading) * s }
   }
 
   /** Advances the root timer; on release the ball resumes its old heading. */
@@ -130,7 +131,7 @@ export class Ball {
     this.vel = { x: 0, y: 0 }
     if (this.rootTimer === 0) {
       const s = this.baseSpeed * 0.5
-      this.vel = { x: Math.cos(this.rootHeading) * s, y: Math.sin(this.rootHeading) * s }
+      this.vel = { x: dm.cos(this.rootHeading) * s, y: dm.sin(this.rootHeading) * s }
     }
   }
 

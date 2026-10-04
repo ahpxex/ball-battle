@@ -1,3 +1,4 @@
+import * as dm from '../core/dmath'
 import { type Vec, clamp, damp, fromAngle, lerpAngle } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
@@ -80,7 +81,7 @@ export class FrogAbility extends Ability {
   constructor(world: World, owner: Ball) {
     super(world, owner)
     const e = this.enemy
-    this.look = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
+    this.look = dm.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x)
     // Start with a few pads at staggered ages so the floor isn't empty.
     for (const age of [1.5, 4, 6.5]) this.spawnPad(age)
     this.padTimer = 1.2
@@ -144,9 +145,9 @@ export class FrogAbility extends Ability {
     if (o.pinned || o.attachedTo) return
     const dx = e.pos.x - o.pos.x
     const dy = e.pos.y - o.pos.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     if (d > TONGUE_RANGE) return
-    this.aim = Math.atan2(dy, dx)
+    this.aim = dm.atan2(dy, dx)
     this.reach = Math.min(d, TONGUE_RANGE)
     this.aimPoint = { x: e.pos.x, y: e.pos.y }
     this.setState('extend')
@@ -161,7 +162,7 @@ export class FrogAbility extends Ability {
     const e = this.enemy
     const tip = this.aimPoint
     const hit =
-      e.alive && this.world.combatActive && Math.hypot(tip.x - e.pos.x, tip.y - e.pos.y) <= e.radius + TIP_RADIUS
+      e.alive && this.world.combatActive && dm.hypot(tip.x - e.pos.x, tip.y - e.pos.y) <= e.radius + TIP_RADIUS
     if (!hit) {
       this.setState('retract')
       return
@@ -199,14 +200,14 @@ export class FrogAbility extends Ability {
     this.keepRooted(e)
     const dx = o.pos.x - e.pos.x
     const dy = o.pos.y - e.pos.y
-    const d = Math.hypot(dx, dy)
+    const d = dm.hypot(dx, dy)
     if (d > 1e-6) {
       const step = Math.min(d, PULL_SPEED * dt)
       const s = this.world.size
       e.pos.x = clamp(e.pos.x + (dx / d) * step, e.radius, s - e.radius)
       e.pos.y = clamp(e.pos.y + (dy / d) * step, e.radius, s - e.radius)
     }
-    this.aim = Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
+    this.aim = dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
 
     this.tickTimer -= dt
     if (this.tickTimer <= 0) {
@@ -218,7 +219,7 @@ export class FrogAbility extends Ability {
       }
     }
 
-    const left = Math.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y)
+    const left = dm.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y)
     if (left <= o.radius * SWALLOW_DISTANCE || this.stateTime >= MAX_PULL_TIME) this.swallow(e)
   }
 
@@ -264,8 +265,8 @@ export class FrogAbility extends Ability {
     }
     if (wasPulling) {
       // Snap the tongue back from wherever the prey was.
-      this.aim = Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
-      this.reach = Math.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y)
+      this.aim = dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
+      this.reach = dm.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y)
       this.setState('retract')
     } else {
       this.setState('idle')
@@ -276,7 +277,7 @@ export class FrogAbility extends Ability {
     const g = this.ghost
     if (!g) return
     this.ghostTime += dt
-    const apart = Math.hypot(g.pos.x - this.owner.pos.x, g.pos.y - this.owner.pos.y) >= g.radius + this.owner.radius
+    const apart = dm.hypot(g.pos.x - this.owner.pos.x, g.pos.y - this.owner.pos.y) >= g.radius + this.owner.radius
     if (!g.alive || apart || this.ghostTime >= SPIT_GHOST_MAX) this.ghost = null
   }
 
@@ -287,7 +288,7 @@ export class FrogAbility extends Ability {
     let target = this.look
     if (this.state === 'idle') {
       const e = this.enemy
-      if (e.alive) target = Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
+      if (e.alive) target = dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
     } else {
       target = this.aim
     }
@@ -331,9 +332,9 @@ export class FrogAbility extends Ability {
         break
       case 'pull': {
         const e = this.prey!
-        angle = Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
+        angle = dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x)
         // Tip sticks to the prey's near rim so it doesn't hide the HP label.
-        length = Math.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) - e.radius * 0.75
+        length = dm.hypot(e.pos.x - o.pos.x, e.pos.y - o.pos.y) - e.radius * 0.75
         break
       }
       default:
@@ -342,8 +343,8 @@ export class FrogAbility extends Ability {
     const mouth = o.radius * 0.8
     if (length <= mouth) return null
     return {
-      from: { x: o.pos.x + Math.cos(angle) * mouth, y: o.pos.y + Math.sin(angle) * mouth },
-      to: { x: o.pos.x + Math.cos(angle) * length, y: o.pos.y + Math.sin(angle) * length },
+      from: { x: o.pos.x + dm.cos(angle) * mouth, y: o.pos.y + dm.sin(angle) * mouth },
+      to: { x: o.pos.x + dm.cos(angle) * length, y: o.pos.y + dm.sin(angle) * length },
     }
   }
 
@@ -391,7 +392,7 @@ export class FrogAbility extends Ability {
 
 /** A lily pad with a wedge cut out, the cut facing `angle`. */
 export function drawLilyPad(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, angle: number): void {
-  const half = Math.asin(clamp(PAD_NOTCH / 2 / r, 0, 1))
+  const half = dm.asin(clamp(PAD_NOTCH / 2 / r, 0, 1))
   ctx.save()
   ctx.fillStyle = 'rgba(91,170,34,0.55)'
   ctx.strokeStyle = 'rgba(123,226,44,0.75)'
@@ -409,7 +410,7 @@ export function drawLilyPad(ctx: CanvasRenderingContext2D, x: number, y: number,
   for (let i = 1; i <= 4; i++) {
     const a = angle + half + ((Math.PI * 2 - 2 * half) * i) / 5
     ctx.moveTo(x, y)
-    ctx.lineTo(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8)
+    ctx.lineTo(x + dm.cos(a) * r * 0.8, y + dm.sin(a) * r * 0.8)
   }
   ctx.stroke()
   ctx.restore()
@@ -421,15 +422,15 @@ export function drawFrogFace(ctx: CanvasRenderingContext2D, x: number, y: number
   if (nub) {
     ctx.fillStyle = TONGUE_PINK
     ctx.beginPath()
-    ctx.arc(x + Math.cos(look) * r * 0.92, y + Math.sin(look) * r * 0.92, r * 0.25, 0, Math.PI * 2)
+    ctx.arc(x + dm.cos(look) * r * 0.92, y + dm.sin(look) * r * 0.92, r * 0.25, 0, Math.PI * 2)
     ctx.fill()
   }
   const back = look + Math.PI
   const er = r * 0.45
   for (const off of [-0.7, 0.7]) {
     const a = back + off
-    const ex = x + Math.cos(a) * r * 0.88
-    const ey = y + Math.sin(a) * r * 0.88
+    const ex = x + dm.cos(a) * r * 0.88
+    const ey = y + dm.sin(a) * r * 0.88
     ctx.fillStyle = '#ffffff'
     ctx.strokeStyle = 'rgba(30,60,10,0.6)'
     ctx.lineWidth = 1.2
@@ -440,7 +441,7 @@ export function drawFrogFace(ctx: CanvasRenderingContext2D, x: number, y: number
     // Pupils peer towards the prey.
     ctx.fillStyle = '#0b0b0b'
     ctx.beginPath()
-    ctx.arc(ex + Math.cos(look) * er * 0.35, ey + Math.sin(look) * er * 0.35, er * 0.5, 0, Math.PI * 2)
+    ctx.arc(ex + dm.cos(look) * er * 0.35, ey + dm.sin(look) * er * 0.35, er * 0.5, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -450,7 +451,7 @@ export function drawFrogFace(ctx: CanvasRenderingContext2D, x: number, y: number
 export function drawTongue(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, r: number, time: number, wiggle = 1): void {
   const dx = to.x - from.x
   const dy = to.y - from.y
-  const length = Math.hypot(dx, dy)
+  const length = dm.hypot(dx, dy)
   if (length < 1e-3) return
   const ux = dx / length
   const uy = dy / length
@@ -463,7 +464,7 @@ export function drawTongue(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, r:
     const u = i / segs
     const s = u * length
     // Envelope pins both ends so the tongue stays rooted in the mouth and the tip.
-    const off = amp * Math.sin(u * Math.PI) * Math.sin(s * 0.09 - time * 24)
+    const off = amp * dm.sin(u * Math.PI) * dm.sin(s * 0.09 - time * 24)
     pts.push({ x: from.x + ux * s + nx * off, y: from.y + uy * s + ny * off })
   }
   const width = r * (TONGUE_WIDTH / R)
@@ -492,7 +493,7 @@ export function drawTongue(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, r:
     const i = Math.min(segs - 1, Math.floor((s / length) * segs))
     const a = pts[i]
     const b = pts[i + 1]
-    const sl = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    const sl = dm.hypot(b.x - a.x, b.y - a.y) || 1
     const px = -(b.y - a.y) / sl
     const py = (b.x - a.x) / sl
     const h = width * 0.32
@@ -519,8 +520,8 @@ export function drawTongue(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, r:
 export function drawFrogPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
   drawLilyPad(ctx, cx - r * 0.9, cy + r * 1.2, r * 1.15, -0.6)
   const look = -0.45
-  const mouth = { x: cx + Math.cos(look) * r * 0.8, y: cy + Math.sin(look) * r * 0.8 }
-  const tip = { x: cx + Math.cos(look) * r * 2.15, y: cy + Math.sin(look) * r * 2.15 }
+  const mouth = { x: cx + dm.cos(look) * r * 0.8, y: cy + dm.sin(look) * r * 0.8 }
+  const tip = { x: cx + dm.cos(look) * r * 2.15, y: cy + dm.sin(look) * r * 2.15 }
   ctx.fillStyle = color
   ctx.beginPath()
   ctx.arc(cx - r * 0.25, cy + r * 0.15, r * 0.95, 0, Math.PI * 2)
@@ -531,15 +532,8 @@ export function drawFrogPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: 
 
 export const frogDef: CharacterDef = {
   id: 'frog',
-  name: '青蛙',
   nameEn: 'FROG',
-  tagline: '舌头一卷，一口吞下',
-  rules: [
-    `敌人进入 ${TONGUE_RANGE_R} 个身位内时吐出舌头（冷却 ${TONGUE_COOLDOWN} 秒）`,
-    `舌头命中 -${HIT_DAMAGE}，并把敌人往回拖，拖拽中每 ${PULL_TICK} 秒 -${PULL_DAMAGE}`,
-    `拖到嘴边后整个吞下 ${SWALLOW_TIME} 秒，再朝随机方向吐出去`,
-    '本体碰撞没有伤害',
-  ],
+  ruleValues: { tongueRangeR: TONGUE_RANGE_R, tongueCooldown: TONGUE_COOLDOWN, hitDamage: HIT_DAMAGE, pullTick: PULL_TICK, pullDamage: PULL_DAMAGE, swallowTime: SWALLOW_TIME },
   palette: { ball: '#7be22c', text: '#ffffff', accent: '#7de02d' },
   mirrorPalette: { ball: '#2f7d1a', text: '#ecfccb', accent: '#4ade80' },
   create: (w, b) => new FrogAbility(w, b),

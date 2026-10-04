@@ -1,4 +1,5 @@
-import { clamp } from '../core/vec'
+import * as dm from '../core/dmath'
+import { clamp, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import type { BallContact } from '../engine/types'
@@ -128,8 +129,8 @@ function drawSpikes(ctx: CanvasRenderingContext2D, x: number, y: number, r: numb
   const reach = r * SPIKE_REACH
   for (let i = 0; i < SPIKES; i++) {
     const a = rot + (i / SPIKES) * Math.PI * 2
-    const c = Math.cos(a)
-    const s = Math.sin(a)
+    const c = dm.cos(a)
+    const s = dm.sin(a)
     ctx.beginPath()
     ctx.moveTo(x + c * r * 0.7, y + s * r * 0.7)
     ctx.lineTo(x + c * (reach - dotR * 0.6), y + s * (reach - dotR * 0.6))
@@ -139,7 +140,7 @@ function drawSpikes(ctx: CanvasRenderingContext2D, x: number, y: number, r: numb
   for (let i = 0; i < SPIKES; i++) {
     const a = rot + (i / SPIKES) * Math.PI * 2
     ctx.beginPath()
-    ctx.arc(x + Math.cos(a) * reach, y + Math.sin(a) * reach, dotR, 0, Math.PI * 2)
+    ctx.arc(x + dm.cos(a) * reach, y + dm.sin(a) * reach, dotR, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -157,7 +158,7 @@ function drawGoo(ctx: CanvasRenderingContext2D, x: number, y: number, r: number,
   ctx.beginPath()
   ctx.moveTo(x - r, y + r)
   for (let dx = -r; dx <= r; dx += 3) {
-    ctx.lineTo(x + dx, top + Math.sin(dx * 0.28 + t * 5) * 1.8)
+    ctx.lineTo(x + dx, top + dm.sin(dx * 0.28 + t * 5) * 1.8)
   }
   ctx.lineTo(x + r, y + r)
   ctx.closePath()
@@ -180,7 +181,7 @@ function drawGoo(ctx: CanvasRenderingContext2D, x: number, y: number, r: number,
   for (let i = 0; i < 3; i++) {
     const fx = -0.4 + i * 0.4
     const dx = x + fx * r
-    const baseY = y + Math.sqrt(Math.max(0, r * r - (fx * r) ** 2)) - 2
+    const baseY = y + Math.sqrt(Math.max(0, r * r - sq(fx * r))) - 2
     const cycle = (t * 0.9 + i * 0.37) % 1
     const len = 3 + 7 * Math.min(1, cycle / 0.7)
     ctx.beginPath()
@@ -229,15 +230,8 @@ const num = (v: number): number => +v.toFixed(2)
 
 export const virusDef: CharacterDef = {
   id: 'virus',
-  name: '病毒',
   nameEn: 'VIRUS',
-  tagline: '碰一下就传染',
-  rules: [
-    '没有武器，只靠身体接触传染（被缴械也照样传染）',
-    `碰到敌人就会感染它：每 ${TICK_INTERVAL} 秒 -${TICK_DAMAGE}，共 ${INFECTION_TICKS} 次（约 ${num(INFECTION_TICKS * TICK_INTERVAL)} 秒）`,
-    '感染期间再碰到不会叠加，也不会刷新',
-    `感染结束 ${REINFECT_COOLDOWN} 秒后才能再次传染`,
-  ],
+  ruleValues: { tickInterval: TICK_INTERVAL, tickDamage: TICK_DAMAGE, infectionTicks: INFECTION_TICKS, infectionDuration: num(INFECTION_TICKS * TICK_INTERVAL), reinfectCooldown: REINFECT_COOLDOWN },
   palette: { ball: '#33dd22', text: '#ffffff', accent: '#3ddc2a' },
   mirrorPalette: { ball: '#d946ef', text: '#ffffff', accent: '#e879f9' },
   create: (w, b) => new VirusAbility(w, b),

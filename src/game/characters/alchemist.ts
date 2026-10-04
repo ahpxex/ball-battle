@@ -1,4 +1,5 @@
-import type { Vec } from '../core/vec'
+import * as dm from '../core/dmath'
+import { type Vec, cube, distSq, sq } from '../core/vec'
 import { Ability } from '../engine/Ability'
 import type { Ball } from '../engine/Ball'
 import { BALL_RADIUS } from '../engine/constants'
@@ -142,14 +143,14 @@ export class AlchemistAbility extends Ability {
     const rng = this.world.rng
     const kind = this.held ?? this.pickPotion()
     this.held = null
-    const dir = Math.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x) + rng.range(-THROW_SCATTER, THROW_SCATTER)
+    const dir = dm.atan2(e.pos.y - o.pos.y, e.pos.x - o.pos.x) + rng.range(-THROW_SCATTER, THROW_SCATTER)
     const dist = BALL_RADIUS * rng.range(THROW_MIN, THROW_MAX)
     // Keep the landing point inside the arena so the cloud isn't wasted on a wall.
     const s = this.world.size
     const m = BALL_RADIUS * 0.5
     const to = {
-      x: Math.min(s - m, Math.max(m, o.pos.x + Math.cos(dir) * dist)),
-      y: Math.min(s - m, Math.max(m, o.pos.y + Math.sin(dir) * dist)),
+      x: Math.min(s - m, Math.max(m, o.pos.x + dm.cos(dir) * dist)),
+      y: Math.min(s - m, Math.max(m, o.pos.y + dm.sin(dir) * dist)),
     }
     const hand = handPos(o)
     this.flasks.push({ kind, from: hand, to, t: 0, tumble: (to.x >= hand.x ? 1 : -1) * 14 })
@@ -174,7 +175,7 @@ export class AlchemistAbility extends Ability {
     if (active) {
       for (const c of this.clouds) {
         if (c.age < CLOUD_GROW) continue
-        if ((e.pos.x - c.pos.x) ** 2 + (e.pos.y - c.pos.y) ** 2 < CLOUD_RADIUS * CLOUD_RADIUS) inside[c.kind] = true
+        if (distSq(e.pos, c.pos) < CLOUD_RADIUS * CLOUD_RADIUS) inside[c.kind] = true
       }
     }
     const frozen = inside.blue && !e.invulnerable
@@ -225,7 +226,7 @@ export class AlchemistAbility extends Ability {
     for (const f of this.flasks) {
       const u = f.t / FLIGHT_TIME
       const x = f.from.x + (f.to.x - f.from.x) * u
-      const y = f.from.y + (f.to.y - f.from.y) * u - Math.sin(u * Math.PI) * BALL_RADIUS * 1.2
+      const y = f.from.y + (f.to.y - f.from.y) * u - dm.sin(u * Math.PI) * BALL_RADIUS * 1.2
       drawPotionBottle(ctx, x, y, BALL_RADIUS * 0.5, LOOKS[f.kind].fill, f.t * f.tumble)
     }
     ctx.restore()
@@ -243,7 +244,7 @@ function handPos(o: Ball): Vec {
 
 function easeOutBack(t: number): number {
   const c = 1.6
-  return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2
+  return 1 + (c + 1) * cube(t - 1) + c * sq(t - 1)
 }
 
 /** Random bubble layout filling a unit disk, larger bubbles towards the middle. */
@@ -254,12 +255,12 @@ function makeBubbles(rnd: () => number): Bubble[] {
   for (let i = 0; i < rim; i++) {
     const a = (i / rim) * Math.PI * 2 + (rnd() - 0.5) * 0.25
     const d = 0.84 + rnd() * 0.06
-    out.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r: 0.11 + rnd() * 0.06, phase: rnd() * Math.PI * 2 })
+    out.push({ x: dm.cos(a) * d, y: dm.sin(a) * d, r: 0.11 + rnd() * 0.06, phase: rnd() * Math.PI * 2 })
   }
   for (let i = 0; i < 22; i++) {
     const a = rnd() * Math.PI * 2
     const d = Math.sqrt(rnd()) * 0.72
-    out.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r: 0.1 + rnd() * 0.12, phase: rnd() * Math.PI * 2 })
+    out.push({ x: dm.cos(a) * d, y: dm.sin(a) * d, r: 0.1 + rnd() * 0.12, phase: rnd() * Math.PI * 2 })
   }
   return out
 }
@@ -274,9 +275,9 @@ function drawCloud(ctx: CanvasRenderingContext2D, cx: number, cy: number, radius
   ctx.lineWidth = 1.2
   ctx.strokeStyle = look.edge
   for (const b of bubbles) {
-    const wobble = Math.sin(time * 2.2 + b.phase)
-    const x = cx + (b.x + Math.cos(b.phase) * wobble * 0.025) * radius
-    const y = cy + (b.y + Math.sin(b.phase) * wobble * 0.025) * radius
+    const wobble = dm.sin(time * 2.2 + b.phase)
+    const x = cx + (b.x + dm.cos(b.phase) * wobble * 0.025) * radius
+    const y = cy + (b.y + dm.sin(b.phase) * wobble * 0.025) * radius
     const r = b.r * radius * (1 + wobble * 0.08)
     ctx.globalAlpha = base * 0.62
     ctx.fillStyle = look.fill
@@ -387,15 +388,15 @@ function makeCracks(rnd: () => number): Crack[] {
     const step = 1.15 / segs
     for (let k = 0; k < segs; k++) {
       const a = heading + (rnd() - 0.5) * 1.1
-      x += Math.cos(a) * step
-      y += Math.sin(a) * step
+      x += dm.cos(a) * step
+      y += dm.sin(a) * step
       pts.push({ x, y })
     }
     cracks.push(pts)
     if (rnd() < 0.6) {
       const mid = pts[Math.min(2, pts.length - 1)]
       const a = heading + (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.5)
-      cracks.push([mid, { x: mid.x + Math.cos(a) * 0.35, y: mid.y + Math.sin(a) * 0.35 }])
+      cracks.push([mid, { x: mid.x + dm.cos(a) * 0.35, y: mid.y + dm.sin(a) * 0.35 }])
     }
   }
   return cracks
@@ -431,7 +432,7 @@ export function drawAlchemistPortrait(ctx: CanvasRenderingContext2D, cx: number,
   // Deterministic bubble layout so the portrait never changes.
   let seed = 7
   const rnd = () => {
-    const h = Math.sin(seed++ * 12.9898) * 43758.5453
+    const h = dm.sin(seed++ * 12.9898) * 43758.5453
     return h - Math.floor(h)
   }
   drawCloud(ctx, cx - r * 1.05, cy + r * 1.1, r * 1.35, makeBubbles(rnd), LOOKS.green, 0)
@@ -448,15 +449,8 @@ export function drawAlchemistPortrait(ctx: CanvasRenderingContext2D, cx: number,
 
 export const alchemistDef: CharacterDef = {
   id: 'alchemist',
-  name: '药剂师',
   nameEn: 'ALCHEMIST',
-  tagline: '今天想尝哪一瓶？',
-  rules: [
-    `每 ${THROW_INTERVAL} 秒朝敌人随机扔出一瓶药剂，碎成一团药雾（持续 ${CLOUD_LIFETIME} 秒，最多 ${MAX_CLOUDS} 团）`,
-    `绿色毒雾：每 ${GREEN_TICK} 秒 -${GREEN_DAMAGE}，并叠加一层中毒`,
-    `红色酸雾：每 ${RED_TICK} 秒 -${RED_DAMAGE}`,
-    `蓝色冰雾：把敌人冻住，每 ${BLUE_TICK} 秒 -${BLUE_DAMAGE}；自己不受药雾影响`,
-  ],
+  ruleValues: { throwInterval: THROW_INTERVAL, cloudLifetime: CLOUD_LIFETIME, maxClouds: MAX_CLOUDS, greenTick: GREEN_TICK, greenDamage: GREEN_DAMAGE, redTick: RED_TICK, redDamage: RED_DAMAGE, blueTick: BLUE_TICK, blueDamage: BLUE_DAMAGE },
   palette: { ball: '#7434b9', text: '#ffffff', accent: '#8b4fd1' },
   mirrorPalette: { ball: '#4c1d95', text: '#ede9fe', accent: '#a78bfa' },
   create: (w, b) => new AlchemistAbility(w, b),
